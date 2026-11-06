@@ -1,0 +1,30 @@
+name: Build Runtime Dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          submodules: recursive
+
+      - name: Install Vulkan SDK
+        run: choco install vulkan-sdk -y --no-progress
+
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Runtime Library
+        run: cmake --build build --config Release --target totkrt --parallel
+
+      - name: Upload Runtime Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-runtime
+          path: |
+            build/**/libtotkrt.a
+            build/**/totk_xlate.exe
