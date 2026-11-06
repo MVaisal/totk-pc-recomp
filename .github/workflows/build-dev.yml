@@ -34,20 +34,18 @@ jobs:
           if (Test-Path "tools/requirements.txt") { pip install -r tools/requirements.txt }
           if (Test-Path "tools/requirements-installer.txt") { pip install -r tools/requirements-installer.txt }
 
-      - name: Build xlate tool
+      - name: Build Shader Translator (totk_xlate)
         run: |
-          dotnet build tools/xlate/totk_xlate.csproj -c Release
+          python tools/build_xlate.py
 
       - name: Run Release Packaging Script
         run: |
-          python tools/make_release.py
+          python tools/make_release.py --out dist --zip TotK-Setup-Dev-windows.zip
 
-      - name: Upload Artifact
+      - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TotK-Setup-Dev-Windows
           path: |
-            *.7z
-            *.zip
+            TotK-Setup-Dev-windows.zip
             dist/
-            build/
