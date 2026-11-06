@@ -14,6 +14,12 @@ jobs:
           ref: dev
           submodules: recursive
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: false
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -24,15 +30,16 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install Ninja & Vulkan SDK
+      - name: Install Dependencies (Ninja, Vulkan, GCC, Make)
         run: |
-          choco install ninja vulkan-sdk -y --no-progress
+          choco install ninja vulkan-sdk make mingw -y --no-progress
 
       - name: Install Python Dependencies
         run: |
-          python -m pip install --upgrade pip
-          if (Test-Path "tools/requirements.txt") { pip install -r tools/requirements.txt }
-          if (Test-Path "tools/requirements-installer.txt") { pip install -r tools/requirements-installer.txt }
+          uv pip install --system -r tools/requirements.txt
+          if (Test-Path "tools/requirements-installer.txt") {
+            uv pip install --system -r tools/requirements-installer.txt
+          }
 
       - name: Build Shader Translator (totk_xlate)
         run: |
