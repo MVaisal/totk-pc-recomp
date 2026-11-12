@@ -47,6 +47,18 @@ jobs:
         run: |
           python tools/build_xlate.py
 
+      - name: Build hactool
+        run: |
+          if (Test-Path "tools/build_hactool.py") {
+            python tools/build_hactool.py
+          } else {
+            New-Item -ItemType Directory -Force -Path "toolchain/hactool"
+            git clone --depth 1 --recurse-submodules https://github.com/SciresM/hactool.git toolchain/hactool-src
+            Copy-Item "toolchain/hactool-src/config.mk.template" "toolchain/hactool-src/config.mk"
+            make -C toolchain/hactool-src -j4
+            Copy-Item "toolchain/hactool-src/hactool.exe" "toolchain/hactool/hactool.exe"
+          }
+
       - name: Run Release Packaging Script
         run: |
           python tools/make_release.py --out dist --zip TotK-Setup-Dev-windows.zip
