@@ -35,7 +35,8 @@ jobs:
       - name: Install Build Dependencies
         run: |
           choco install ninja vulkan-sdk -y --no-progress
-          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed make mingw-w64-x86_64-gcc"
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed make gcc mingw-w64-x86_64-gcc mingw-w64-x86_64-make"
+          C:\msys64\usr\bin\bash -lc "mkdir -p /usr/local/bin && cp -f /mingw64/bin/* /usr/local/bin/ 2>/dev/null || true"
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
           echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
 
@@ -53,16 +54,29 @@ jobs:
       - name: Build hactool
         env:
           MSYSTEM: MINGW64
+          MSYS2_PATH_TYPE: inherit
           CHERE_INVOKING: 1
         run: |
-          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:Path
+          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\local\bin;C:\msys64\usr\bin;" + $env:Path
           python tools/build_hactool.py
           if ($LASTEXITCODE -ne 0) {
+            Write-Host "build_hactool.py failed, building hactool directly with static linking..."
             if (Test-Path "toolchain\src\hactool\build.log") {
               Get-Content "toolchain\src\hactool\build.log"
             }
+            New-Item -ItemType Directory -Force -Path "toolchain/hactool"
+            if (-not (Test-Path "toolchain/src/hactool/Makefile")) {
+              git clone --depth 1 --recurse-submodules https://github.com/SciresM/hactool.git toolchain/src/hactool
+            }
+            Copy-Item -Force "toolchain/src/hactool/config.mk.template" "toolchain/src/hactool/config.mk"
+            C:\msys64\usr\bin\bash -lc "export PATH=/mingw64/bin:/usr/local/bin:/usr/bin:`$PATH; cd /d/a/totk-pc-recomp/totk-pc-recomp/toolchain/src/hactool && make clean && make -j4 CC='gcc -static'"
+            Copy-Item -Force "toolchain/src/hactool/hactool.exe" "toolchain/hactool/hactool.exe"
+          }
+          if (-not (Test-Path "toolchain/hactool/hactool.exe")) {
+            Write-Error "hactool.exe was not produced!"
             exit 1
           }
+          .\toolchain\hactool\hactool.exe --help | Select-Object -First 5
 
       - name: Run Release Packaging Script
         run: |
