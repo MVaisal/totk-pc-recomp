@@ -75,41 +75,66 @@ jobs:
           Write-Host "hactool.exe built successfully!"
           $global:LASTEXITCODE = 0
 
-      - name: Fetch Precomputed Data & Configure Runtime Library Compilation
+      - name: Fetch exefs.zip from Draft Release & Run Native Lifter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $myReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Headers $headers
+          $exefsAsset = $myReleases | ForEach-Object { $_.assets } | Where-Object { $_.name -eq "exefs.zip" } | Select-Object -First 1
+
+          if (-not $exefsAsset) {
+            Write-Error "File exefs.zip tidak ditemukan di Releases (Draft) repositori ${{ github.repository }}!"
+            exit 1
+          }
+
+          Write-Host "Downloading exefs.zip from Draft Release..."
+          Invoke-WebRequest -Uri $exefsAsset.url -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/octet-stream" } -OutFile "exefs.zip"
+
+          New-Item -ItemType Directory -Force -Path "build/extracted/v143/exefs"
+          Expand-Archive -Path "exefs.zip" -DestinationPath "build/extracted/v143/exefs" -Force
+
+          # Ratakan subfolder exefs/ jika di dalam zip terbungkus folder exefs/
+          if (Test-Path "build/extracted/v143/exefs/exefs") {
+            Move-Item -Path "build/extracted/v143/exefs/exefs/*" -Destination "build/extracted/v143/exefs/" -Force
+            Remove-Item -Path "build/extracted/v143/exefs/exefs" -Recurse -Force
+          }
+
+          Write-Host "Contents of build/extracted/v143/exefs:"
+          Get-ChildItem "build/extracted/v143/exefs"
+
+          # Cek argumen CLI recomp/gen.py dan jalankan generator asli
+          python recomp/gen.py --help
+          python recomp/gen.py --version v143
+
+      - name: Fetch Upstream Precomputed PGO & Configure make_release.py
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
           New-Item -ItemType Directory -Force -Path "upstream_licenses"
           New-Item -ItemType Directory -Force -Path "build/pgo"
-          New-Item -ItemType Directory -Force -Path "generated/v143"
-          New-Item -ItemType Directory -Force -Path "generated/v121"
 
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
           $reposToTry = @("TotKRecomp/TotKRecomp")
           try {
-            $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+            $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers $headers
             if ($repoInfo.parent) { $reposToTry = @($repoInfo.parent.full_name) + $reposToTry }
-            if ($repoInfo.source) { $reposToTry = @($repoInfo.source.full_name) + $reposToTry }
           } catch {}
-          $reposToTry = $reposToTry | Select-Object -Unique
 
-          foreach ($r in $reposToTry) {
+          foreach ($r in ($reposToTry | Select-Object -Unique)) {
             try {
-              Write-Host "Checking releases in $r..."
-              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
               $asset = $releases | ForEach-Object { $_.assets } | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
               if ($asset) {
-                Write-Host "Downloading official release asset: $($asset.name)"
                 curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
                 break
               }
-            } catch {
-              Write-Host "Could not fetch from $r : $_"
-            }
+            } catch {}
           }
 
           @'
-          import zipfile, pathlib, json, re
+          import zipfile, pathlib
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
@@ -121,85 +146,21 @@ jobs:
                           fname = pathlib.Path(member).name
                           data_bytes = zf.read(member)
                           (pathlib.Path("upstream_data") / fname).write_bytes(data_bytes)
-                          print("Extracted data:", fname)
                           if fname.startswith("pgo-"):
                               (pathlib.Path("build/pgo") / fname).write_bytes(data_bytes)
-                          if fname == "shader_list.tsv":
-                              (pathlib.Path("generated/v143") / fname).write_bytes(data_bytes)
-                              (pathlib.Path("generated/v121") / fname).write_bytes(data_bytes)
                       elif "/licenses/" in member:
                           fname = pathlib.Path(member).name
                           (pathlib.Path("upstream_licenses") / fname).write_bytes(zf.read(member))
 
-          # Analisis tools/build_game.py untuk membuat generated/v143/layout.json yang valid untuk kompilasi libtotkrt.a
-          bg_path = pathlib.Path("tools/build_game.py")
-          bg_src = bg_path.read_text(encoding="utf-8")
-
-          print("=== Inspecting build_game.py layout usage ===")
-          for idx, line in enumerate(bg_src.splitlines(), 1):
-              if "layout" in line or "make_runtime_lib" in line or "make-runtime-lib" in line:
-                  print(f"{idx}: {line}")
-
-          # Tangkap semua key dari layout[...] atau layout.get(...)
-          keys = set(re.findall(r"layout(?:\.get)?\(\s*['\"]([^'\"]+)['\"]", bg_src))
-          keys |= set(re.findall(r"layout\[\s*['\"]([^'\"]+)['\"]\s*\]", bg_src))
-
-          dummy_layout = {
-              "version": "v143",
-              "chunks": [],
-              "files": [],
-              "units": [],
-              "functions": {},
-              "globals": {},
-              "romfs": {},
-              "exefs": {},
-              "text_base": 0x80004000,
-              "text_size": 0x04000000,
-              "rodata_base": 0x84004000,
-              "rodata_size": 0x01000000,
-              "data_base": 0x85004000,
-              "data_size": 0x01000000,
-              "bss_base": 0x86004000,
-              "bss_size": 0x01000000,
-              "image_size": 0x08000000,
-          }
-          for k in keys:
-              if k not in dummy_layout:
-                  dummy_layout[k] = [] if k.endswith("s") else 0
-
-          for ver in ("v143", "v121"):
-              gdir = pathlib.Path("generated") / ver
-              gdir.mkdir(parents=True, exist_ok=True)
-              d = dict(dummy_layout, version=ver)
-              (gdir / "layout.json").write_text(json.dumps(d, indent=2), encoding="utf-8")
-
-          # Patch make_release.py: jalankan runtime_lib() asli dari dev agar libtotkrt.a dikompilasi baru,
-          # dan pastikan hasilnya disalin ke dist/runtime/libtotkrt.a
           mr_path = pathlib.Path("tools/make_release.py")
           mr_src = mr_path.read_text(encoding="utf-8")
 
           override_code = """
           import pathlib as _p, shutil as _sh
 
-          def lifted_version(*args, **kwargs):
-              return 'v143'
-
-          _orig_runtime_lib = runtime_lib
-          def runtime_lib(out, llvm, pgo, *args, **kwargs):
-              print('Compiling fresh libtotkrt.a from dev runtime/ sources...')
-              _orig_runtime_lib(out, llvm, pgo, *args, **kwargs)
-              rt_out = _p.Path(out) / 'runtime'
-              rt_out.mkdir(parents=True, exist_ok=True)
-              # Pastikan libtotkrt.a hasil build masuk ke dist/runtime/
-              for built_a in _p.Path('build').rglob('libtotkrt.a'):
-                  _sh.copy2(built_a, rt_out / 'libtotkrt.a')
-                  print(f'Copied newly compiled {built_a} -> {rt_out / "libtotkrt.a"}')
-                  break
-
           def _patched_shader_history(*args, **kwargs):
               up = _p.Path('upstream_data/shader_list.tsv')
               if up.exists():
-                  print('Using precomputed shader_list.tsv from official release')
                   return up.read_text(encoding='utf-8')
               return ''
 
@@ -227,7 +188,7 @@ jobs:
               mr_src += "\n" + override_code
 
           mr_path.write_text(mr_src, encoding="utf-8")
-          print("Patched make_release.py successfully.")
+          print("Configured make_release.py with native generated/v143.")
           '@ | python -
 
       - name: Run Release Packaging Script
