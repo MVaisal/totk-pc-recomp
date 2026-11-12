@@ -1,12 +1,11 @@
 name: Build TotK Setup Dev
-run-name: "TotK Setup Dev #${{ github.run_number }}"
+run-name: "TotK Setup Dev #${{ github.run_number }} (${{ github.ref_name }})"
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   build-windows:
@@ -19,7 +18,7 @@ jobs:
           ref: dev
           submodules: recursive
 
-      - name: Set Build Version, Date & Update Run Title
+      - name: Set Build Version & Date
         id: build_meta
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,7 +80,6 @@ jobs:
           $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
           $zipName      = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows.zip"
           $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
-          $runTitle     = "TotK Setup $fullVersion #${{ github.run_number }}"
 
           # Timpa file VERSION di workspace
           if ($verFile) { Set-Content -Path $verFile -Value $fullVersion -NoNewline }
@@ -93,14 +91,7 @@ jobs:
           echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
           echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
 
-          # Langsung ubah judul Workflow Run di halaman GitHub Actions sekarang juga
-          $body = @{ name = $runTitle } | ConvertTo-Json
-          try {
-            Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
-            Write-Host "Updated workflow run title to: $runTitle"
-          } catch {
-            Write-Host "Could not update run title via API: $_"
-          }
+          Write-Host "Build Version: $fullVersion | Artifact: $artifactName"
 
           # Tulis ringkasan ke halaman Summary Actions
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Build Version: ``$fullVersion``"
@@ -302,5 +293,5 @@ jobs:
       - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.build_meta.outputs.artifact_name }}
-          path: ${{ steps.build_meta.outputs.zip_name }}
+          name: ${{ steps.upstream_meta.outputs.artifact_name }}
+          path: ${{ steps.upstream_meta.outputs.zip_name }}
