@@ -34,10 +34,10 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
-          choco install ninja vulkan-sdk make mingw -y --no-progress
+          choco install ninja vulkan-sdk -y --no-progress
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed make mingw-w64-x86_64-gcc"
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
           echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
-          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
 
       - name: Install Python Dependencies
         run: |
