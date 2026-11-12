@@ -51,7 +51,11 @@ jobs:
           python tools/build_xlate.py
 
       - name: Build hactool
+        env:
+          MSYSTEM: MINGW64
+          CHERE_INVOKING: 1
         run: |
+          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:Path
           python tools/build_hactool.py
           if ($LASTEXITCODE -ne 0) {
             if (Test-Path "toolchain\src\hactool\build.log") {
