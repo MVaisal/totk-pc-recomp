@@ -75,6 +75,34 @@ jobs:
           Write-Host "hactool.exe built successfully!"
           $global:LASTEXITCODE = 0
 
+      - name: Prepare PGO & Folded Data from Upstream Release
+        run: |
+          python -c "
+          import pathlib
+          p = pathlib.Path('tools/make_release.py')
+          lines = p.read_text(encoding='utf-8').splitlines()
+          for i, l in enumerate(lines, 1):
+              if any(k in l for k in ['generated', 'v121', 'v143', 'folded', 'pgo']):
+                  print(f'{i}: {l}')
+          "
+          # Fetch latest release from TotKRecomp/TotKRecomp to reuse precomputed data/pgo & folded tables
+          try {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/TotKRecomp/TotKRecomp/releases/latest" -ErrorAction Stop
+            $asset = $rel.assets | Where-Object { $_.name -like "*windows*.zip" -or $_.name -like "*.zip" } | Select-Object -First 1
+            if ($asset) {
+              Write-Host "Downloading upstream release asset: $($asset.name)"
+              Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "upstream_rel.zip"
+              Expand-Archive -Path "upstream_rel.zip" -DestinationPath "upstream_rel" -Force
+              Get-ChildItem -Path "upstream_rel" -Recurse -File | ForEach-Object {
+                if ($_.Name -like "pgo-*" -or $_.Name -like "*folded*") {
+                  Write-Host "Found upstream precomputed file: $($_.FullName)"
+                }
+              }
+            }
+          } catch {
+            Write-Host "Notice: Could not query TotKRecomp/TotKRecomp release API: $_"
+          }
+
       - name: Run Release Packaging Script
         run: |
           python tools/make_release.py --out dist --zip TotK-Setup-Dev-windows.zip
