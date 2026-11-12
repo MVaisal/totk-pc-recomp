@@ -19,13 +19,95 @@ jobs:
           ref: dev
           submodules: recursive
 
-      - name: Generate Build Date (WIB)
+      - name: Set Build Version, Date & Update Run Title
         id: build_meta
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
           $wib = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "SE Asia Standard Time")
           $tsDate = $wib.ToString("yyyyMMdd")
-          echo "ts_date=$tsDate" >> $env:GITHUB_OUTPUT
-          Write-Host "Build Date (WIB): $tsDate"
+
+          # Deteksi repo utama (upstream)
+          $upstreamRepo = "valentderah/totk-pc-recomp"
+          try {
+            $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers $headers
+            if ($repoInfo.parent) { $upstreamRepo = $repoInfo.parent.full_name }
+          } catch {}
+
+          # Ambil 7 digit ID commit terakhir dari branch dev repo utama
+          $upstreamCommit = ""
+          try {
+            $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/dev" -Headers $headers
+            if ($commitInfo.sha) { $upstreamCommit = $commitInfo.sha.Substring(0, 7) }
+          } catch {
+            try {
+              $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/main" -Headers $headers
+              if ($commitInfo.sha) { $upstreamCommit = $commitInfo.sha.Substring(0, 7) }
+            } catch {}
+          }
+
+          # Ambil tag rilis terakhir dari upstream
+          $upstreamTag = ""
+          foreach ($r in @($upstreamRepo, "TotKRecomp/TotKRecomp")) {
+            try {
+              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
+              $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
+              if ($rel) { $upstreamTag = $rel.tag_name; break }
+            } catch {}
+          }
+
+          # Baca file VERSION lokal dan hitung versi +1
+          $verFile = @("VERSION", "version", "VERSION.txt", "version.txt") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $rawVer = if ($verFile) { (Get-Content $verFile -Raw).Trim() } else { "" }
+
+          $vList = @()
+          foreach ($s in @($rawVer, $upstreamTag)) {
+            if ($s -match "(\d+)\.(\d+)\.(\d+)") {
+              $vList += [Version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+            }
+          }
+
+          if ($vList.Count -gt 0) {
+            $maxV = ($vList | Sort-Object -Descending | Select-Object -First 1)
+            $nextBase = "$($maxV.Major).$($maxV.Minor).$($maxV.Build + 1)"
+          } else {
+            $nextBase = "0.4.1"
+          }
+
+          $shaDot  = if ($upstreamCommit) { ".$upstreamCommit" } else { "" }
+          $shaDash = if ($upstreamCommit) { "-$upstreamCommit" } else { "" }
+
+          $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
+          $zipName      = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows.zip"
+          $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
+          $runTitle     = "TotK Setup $fullVersion #${{ github.run_number }}"
+
+          # Timpa file VERSION di workspace
+          if ($verFile) { Set-Content -Path $verFile -Value $fullVersion -NoNewline }
+          else { Set-Content -Path "VERSION" -Value $fullVersion -NoNewline }
+
+          echo "upstream_repo=$upstreamRepo" >> $env:GITHUB_OUTPUT
+          echo "upstream_commit=$upstreamCommit" >> $env:GITHUB_OUTPUT
+          echo "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+          echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
+
+          # Langsung ubah judul Workflow Run di halaman GitHub Actions sekarang juga
+          $body = @{ name = $runTitle } | ConvertTo-Json
+          try {
+            Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+            Write-Host "Updated workflow run title to: $runTitle"
+          } catch {
+            Write-Host "Could not update run title via API: $_"
+          }
+
+          # Tulis ringkasan ke halaman Summary Actions
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Build Version: ``$fullVersion``"
+          if ($upstreamCommit) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Commit (``$upstreamRepo@dev``):** ``$upstreamCommit``"
+          }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Artifact:** ``$artifactName``"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -115,48 +197,22 @@ jobs:
           Write-Host "Running native lifter recomp/gen.py on exefs..."
           python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
 
-      - name: Fetch Upstream Info, Update Run Title & Configure make_release.py
-        id: upstream_meta
+      - name: Fetch Upstream Precomputed PGO & Configure make_release.py
         env:
           GH_TOKEN: ${{ github.token }}
-          BUILD_DATE: ${{ steps.build_meta.outputs.ts_date }}
+          FULL_VERSION: ${{ steps.build_meta.outputs.full_version }}
+          UPSTREAM_REPO: ${{ steps.build_meta.outputs.upstream_repo }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
           New-Item -ItemType Directory -Force -Path "upstream_licenses"
           New-Item -ItemType Directory -Force -Path "build/pgo"
 
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
-          $upstreamRepo = "valentderah/totk-pc-recomp"
-          try {
-            $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers $headers
-            if ($repoInfo.parent) { $upstreamRepo = $repoInfo.parent.full_name }
-          } catch {}
-
-          # Ambil 7 digit ID commit terakhir dari branch dev repo utama
-          $upstreamCommit = ""
-          try {
-            $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/dev" -Headers $headers
-            if ($commitInfo.sha) {
-              $upstreamCommit = $commitInfo.sha.Substring(0, 7)
-            }
-          } catch {
-            try {
-              $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/main" -Headers $headers
-              if ($commitInfo.sha) {
-                $upstreamCommit = $commitInfo.sha.Substring(0, 7)
-              }
-            } catch {}
-          }
-          Write-Host "Upstream repo ($upstreamRepo) latest commit: $upstreamCommit"
-
-          $reposToTry = @($upstreamRepo, "TotKRecomp/TotKRecomp") | Select-Object -Unique
-          $upstreamTag = ""
-          foreach ($r in $reposToTry) {
+          foreach ($r in @($env:UPSTREAM_REPO, "TotKRecomp/TotKRecomp") | Select-Object -Unique) {
             try {
               $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
               $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
               if ($rel) {
-                $upstreamTag = $rel.tag_name
                 $asset = $rel.assets | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
                 if ($asset) {
                   curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
@@ -166,65 +222,10 @@ jobs:
             } catch {}
           }
 
-          $env:UPSTREAM_TAG = $upstreamTag
-          $env:UPSTREAM_COMMIT = $upstreamCommit
-
           @'
           import zipfile, pathlib, re, os
 
-          ts_date = os.environ.get("BUILD_DATE", "dev")
-          up_tag  = os.environ.get("UPSTREAM_TAG", "").strip()
-          up_sha  = os.environ.get("UPSTREAM_COMMIT", "").strip()
-
-          ver_file = None
-          for candidate in ["VERSION", "version", "VERSION.txt", "version.txt"]:
-              p = pathlib.Path(candidate)
-              if p.exists():
-                  ver_file = p
-                  break
-
-          raw_ver = ver_file.read_text(encoding="utf-8").strip() if ver_file else ""
-
-          def parse_ver(s):
-              m = re.search(r"(\d+)\.(\d+)\.(\d+)", s)
-              return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
-
-          v_local = parse_ver(raw_ver)
-          v_up    = parse_ver(up_tag)
-          candidates = [v for v in (v_local, v_up) if v is not None]
-
-          if candidates:
-              major, minor, patch = max(candidates)
-              next_base = f"{major}.{minor}.{patch + 1}"
-          else:
-              next_base = "0.4.1"
-
-          sha_dot  = f".{up_sha}" if up_sha else ""
-          sha_dash = f"-{up_sha}" if up_sha else ""
-
-          full_version  = f"{next_base}-dev+{ts_date}{sha_dot}"
-          zip_name      = f"TotK-Setup-{next_base}-dev-{ts_date}{sha_dash}-windows.zip"
-          artifact_name = f"TotK-Setup-{next_base}-dev-{ts_date}{sha_dash}-Windows"
-          run_title     = f"TotK Setup {full_version} #${{ github.run_number }}"
-
-          if ver_file:
-              ver_file.write_text(full_version + "\n", encoding="utf-8")
-          else:
-              pathlib.Path("VERSION").write_text(full_version + "\n", encoding="utf-8")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
-              gh_out.write(f"full_version={full_version}\n")
-              gh_out.write(f"zip_name={zip_name}\n")
-              gh_out.write(f"artifact_name={artifact_name}\n")
-              gh_out.write(f"run_title={run_title}\n")
-
-          if "GITHUB_STEP_SUMMARY" in os.environ:
-              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-                  summary.write(f"### Build Version: `{full_version}`\n")
-                  if up_sha:
-                      summary.write(f"- **Upstream Commit (`dev`):** `{up_sha}`\n")
-                  summary.write(f"- **Artifact:** `{artifact_name}`\n")
-                  summary.write(f"- **Archive:** `{zip_name}`\n")
+          full_version = os.environ.get("FULL_VERSION", "0.4.1-dev")
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
@@ -291,27 +292,15 @@ jobs:
               mr_src += "\n" + override_code
 
           mr_path.write_text(mr_src, encoding="utf-8")
+          print(f"Configured make_release.py with version: {full_version}")
           '@ | python -
-
-          # Perbarui judul workflow run di halaman GitHub Actions secara langsung
-          $newTitle = "${{ steps.upstream_meta.outputs.run_title }}"
-          if (-not $newTitle) {
-            $newTitle = "TotK Setup ${{ steps.upstream_meta.outputs.full_version }} #${{ github.run_number }}"
-          }
-          $body = @{ name = $newTitle } | ConvertTo-Json
-          try {
-            Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
-            Write-Host "Updated workflow run title to: $newTitle"
-          } catch {
-            Write-Host "Could not update run title via API: $_"
-          }
 
       - name: Run Release Packaging Script
         run: |
-          python tools/make_release.py --out dist --zip "${{ steps.upstream_meta.outputs.zip_name }}"
+          python tools/make_release.py --out dist --zip "${{ steps.build_meta.outputs.zip_name }}"
 
       - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.upstream_meta.outputs.artifact_name }}
-          path: ${{ steps.upstream_meta.outputs.zip_name }}
+          name: ${{ steps.build_meta.outputs.artifact_name }}
+          path: ${{ steps.build_meta.outputs.zip_name }}
