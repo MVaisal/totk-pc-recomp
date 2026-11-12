@@ -80,6 +80,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
+          New-Item -ItemType Directory -Force -Path "upstream_licenses"
           New-Item -ItemType Directory -Force -Path "build/pgo"
           New-Item -ItemType Directory -Force -Path "generated/v143"
           New-Item -ItemType Directory -Force -Path "generated/v121"
@@ -114,7 +115,9 @@ jobs:
           if zfile.exists():
               with zipfile.ZipFile(zfile) as zf:
                   for member in zf.namelist():
-                      if "/data/" in member and not member.endswith("/"):
+                      if member.endswith("/"):
+                          continue
+                      if "/data/" in member:
                           fname = pathlib.Path(member).name
                           data_bytes = zf.read(member)
                           (pathlib.Path("upstream_data") / fname).write_bytes(data_bytes)
@@ -124,6 +127,9 @@ jobs:
                           if fname == "shader_list.tsv":
                               (pathlib.Path("generated/v143") / fname).write_bytes(data_bytes)
                               (pathlib.Path("generated/v121") / fname).write_bytes(data_bytes)
+                      elif "/licenses/" in member:
+                          fname = pathlib.Path(member).name
+                          (pathlib.Path("upstream_licenses") / fname).write_bytes(zf.read(member))
 
           mr_path = pathlib.Path("tools/make_release.py")
           mr_src = mr_path.read_text(encoding="utf-8")
@@ -145,6 +151,20 @@ jobs:
               return ''
 
           shader_list.history = _patched_shader_history
+
+          _orig_collect_licenses = collect_licenses
+          def collect_licenses(out, *args, **kwargs):
+              lic = _p.Path(out) / 'licenses'
+              lic.mkdir(parents=True, exist_ok=True)
+              up_lic = _p.Path('upstream_licenses')
+              if up_lic.exists():
+                  for f in up_lic.iterdir():
+                      if f.is_file():
+                          _sh.copy2(f, lic / f.name)
+              try:
+                  _orig_collect_licenses(out, *args, **kwargs)
+              except FileNotFoundError as e:
+                  print(f'Skipping missing optional license source: {e}')
           """
 
           if "if __name__" in mr_src:
