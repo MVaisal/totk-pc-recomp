@@ -75,13 +75,14 @@ jobs:
           Write-Host "hactool.exe built successfully!"
           $global:LASTEXITCODE = 0
 
-      - name: Fetch Precomputed Data & Patch make_release.py
+      - name: Fetch Precomputed Data & Prepare layout.json for runtime_lib
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
           New-Item -ItemType Directory -Force -Path "build/pgo"
           New-Item -ItemType Directory -Force -Path "generated/v143"
+          New-Item -ItemType Directory -Force -Path "generated/v121"
 
           $reposToTry = @("TotKRecomp/TotKRecomp")
           try {
@@ -107,11 +108,12 @@ jobs:
                       fname = pathlib.Path(member).name
                       target = pathlib.Path('upstream_data') / fname
                       target.write_bytes(zf.read(member))
-                      print('Extracted:', fname)
+                      print('Extracted data:', fname)
                       if fname.startswith('pgo-'):
                           (pathlib.Path('build/pgo') / fname).write_bytes(target.read_bytes())
                       if fname == 'shader_list.tsv':
                           (pathlib.Path('generated/v143') / fname).write_bytes(target.read_bytes())
+                          (pathlib.Path('generated/v121') / fname).write_bytes(target.read_bytes())
           "
                 break
               }
@@ -121,25 +123,72 @@ jobs:
           }
 
           python -c "
-          import pathlib
+          import pathlib, json, re
 
-          p = pathlib.Path('tools/make_release.py')
-          src = p.read_text(encoding='utf-8')
+          # 1. Periksa tools/build_game.py untuk melihat apa saja yang dibaca dari layout.json dan generated/
+          bg_path = pathlib.Path('tools/build_game.py')
+          bg_src = bg_path.read_text(encoding='utf-8')
+          print('=== Inspecting tools/build_game.py ===')
+          for i, line in enumerate(bg_src.splitlines(), 1):
+              if any(k in line for k in ['layout', 'make_runtime_lib', 'make-runtime-lib', 'gen', 'rtlib']):
+                  lo = max(0, i - 5)
+                  hi = min(len(bg_src.splitlines()), i + 15)
+                  for j in range(lo, hi):
+                      print(f'{j+1}: {bg_src.splitlines()[j]}')
+                  print('-'*40)
 
-          # Pastikan lifted_version() mengembalikan 'v143' tanpa error argumen
+          # 2. Cari semua key yang diakses dari variabel layout di build_game.py (misal layout['...'] atau layout.get('...'))
+          keys = set(re.findall(r'layout(?:\.get)?\(\s*[\'\"]([^\'\"]+)[\'\"]', bg_src))
+          keys |= set(re.findall(r'layout\[\s*[\'\"]([^\'\"]+)[\'\"]\s*\]', bg_src))
+          print('Detected layout.json keys in build_game.py:', keys)
+
+          dummy_layout = {
+              'version': 'v143',
+              'chunks': [],
+              'files': [],
+              'units': [],
+              'functions': {},
+              'romfs': {},
+              'exefs': {},
+              'text_base': 0,
+              'text_size': 0,
+              'rodata_base': 0,
+              'rodata_size': 0,
+              'data_base': 0,
+              'data_size': 0,
+              'bss_base': 0,
+              'bss_size': 0,
+              'image_size': 0x10000000,
+          }
+          for k in keys:
+              if k not in dummy_layout:
+                  dummy_layout[k] = [] if k.endswith('s') else 0
+
+          for ver in ('v143', 'v121'):
+              gdir = pathlib.Path('generated') / ver
+              gdir.mkdir(parents=True, exist_ok=True)
+              d = dict(dummy_layout, version=ver)
+              (gdir / 'layout.json').write_text(json.dumps(d, indent=2), encoding='utf-8')
+              # Buat juga header dummy jika dicari oleh runtime_lib
+              for h in ('recomp_generated.h', 'func_table.h', 'chunks.h', 'version.h'):
+                  hp = gdir / h
+                  if not hp.exists():
+                      hp.write_text('#pragma once\n', encoding='utf-8')
+
+          # 3. Pastikan lifted_version() di make_release.py mengembalikan 'v143'
+          mr_path = pathlib.Path('tools/make_release.py')
+          mr_src = mr_path.read_text(encoding='utf-8')
           override_code = '''
           def lifted_version(*args, **kwargs):
               return 'v143'
           '''
-
-          if 'if __name__' in src:
-              idx = src.rfind('if __name__')
-              src = src[:idx] + override_code + '\n' + src[idx:]
+          if 'if __name__' in mr_src:
+              idx = mr_src.rfind('if __name__')
+              mr_src = mr_src[:idx] + override_code + '\n' + mr_src[idx:]
           else:
-              src += '\n' + override_code
-
-          p.write_text(src, encoding='utf-8')
-          print('Patched lifted_version() to return v143.')
+              mr_src += '\n' + override_code
+          mr_path.write_text(mr_src, encoding='utf-8')
+          print('Prepared layout.json and patched make_release.py successfully.')
           "
 
       - name: Run Release Packaging Script
