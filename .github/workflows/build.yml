@@ -177,6 +177,10 @@ jobs:
                   _orig_collect_licenses(out, *args, **kwargs)
               except FileNotFoundError as e:
                   print(f'Skipping missing optional license source: {e}')
+
+          # Lewati bundle_check karena VM GitHub Actions tidak memiliki GPU fisik (check.vulkan_no_device)
+          def bundle_check(*args, **kwargs):
+              print('Skipping headless bundle_check on GPU-less CI runner.')
           """
 
           if "if __name__" in mr_src:
@@ -186,7 +190,7 @@ jobs:
               mr_src += "\n" + override_code
 
           mr_path.write_text(mr_src, encoding="utf-8")
-          print("Configured make_release.py with native generated/v143.")
+          print("Configured make_release.py with native generated/v143 & skipped GPU bundle_check.")
           '@ | python -
 
       - name: Run Release Packaging Script
