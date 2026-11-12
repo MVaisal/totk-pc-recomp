@@ -97,18 +97,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path "build/extracted/v143/exefs"
           Expand-Archive -Path "exefs.zip" -DestinationPath "build/extracted/v143/exefs" -Force
 
-          # Ratakan subfolder exefs/ jika di dalam zip terbungkus folder exefs/
           if (Test-Path "build/extracted/v143/exefs/exefs") {
             Move-Item -Path "build/extracted/v143/exefs/exefs/*" -Destination "build/extracted/v143/exefs/" -Force
             Remove-Item -Path "build/extracted/v143/exefs/exefs" -Recurse -Force
           }
 
-          Write-Host "Contents of build/extracted/v143/exefs:"
-          Get-ChildItem "build/extracted/v143/exefs"
-
-          # Cek argumen CLI recomp/gen.py dan jalankan generator asli
-          python recomp/gen.py --help
-          python recomp/gen.py --version v143
+          Write-Host "Running native lifter recomp/gen.py on exefs..."
+          python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
 
       - name: Fetch Upstream Precomputed PGO & Configure make_release.py
         env:
