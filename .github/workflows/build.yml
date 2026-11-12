@@ -81,7 +81,7 @@ jobs:
           $zipName      = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows.zip"
           $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
 
-          # Timpa file VERSION di workspace
+          # Timpa file VERSION di workspace agar dibaca installer
           if ($verFile) { Set-Content -Path $verFile -Value $fullVersion -NoNewline }
           else { Set-Content -Path "VERSION" -Value $fullVersion -NoNewline }
 
@@ -167,7 +167,7 @@ jobs:
         run: |
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
           $myReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Headers $headers
-          $exefsAsset = $myReleases | ForEach-Object { $_.assets } | Where-Object { $_.name -eq "exefs.zip" } | Select-Object -First 1
+          $exefsAsset =$myReleases | ForEach-Object { $_.assets } \vert{} Where-Object {$_.name -eq "exefs.zip" } | Select-Object -First 1
 
           if (-not $exefsAsset) {
             Write-Error "File exefs.zip tidak ditemukan di Releases (Draft) repositori ${{ github.repository }}!"
@@ -201,10 +201,8 @@ jobs:
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
           foreach ($r in @($env:UPSTREAM_REPO, "TotKRecomp/TotKRecomp") | Select-Object -Unique) {
             try {
-              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
-              $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
-              if ($rel) {
-                $asset = $rel.assets | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
+              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers$rel = $releases \vert{} Where-Object { -not$_.draft } | Select-Object -First 1
+              if ($rel) {$asset = $rel.assets \vert{} Where-Object {$_.name -like "*windows*.zip" } | Select-Object -First 1
                 if ($asset) {
                   curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
                   break
@@ -288,10 +286,4 @@ jobs:
 
       - name: Run Release Packaging Script
         run: |
-          python tools/make_release.py --out dist --zip "${{ steps.build_meta.outputs.zip_name }}"
-
-      - name: Upload Release Package Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.upstream_meta.outputs.artifact_name }}
-          path: ${{ steps.upstream_meta.outputs.zip_name }}
+          python tools/make_release.py --out dist
