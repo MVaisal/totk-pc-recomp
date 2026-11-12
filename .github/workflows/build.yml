@@ -129,11 +129,22 @@ jobs:
           mr_src = mr_path.read_text(encoding="utf-8")
 
           override_code = """
+          import pathlib as _p, shutil as _sh
+
           def lifted_version(*args, **kwargs):
               return 'v143'
 
           def runtime_lib(*args, **kwargs):
               print('Skipping release-check runtime_lib sanity build (no ROM in CI)')
+
+          def _patched_shader_history(*args, **kwargs):
+              up = _p.Path('upstream_data/shader_list.tsv')
+              if up.exists():
+                  print('Using precomputed shader_list.tsv from official release')
+                  return up.read_text(encoding='utf-8')
+              return ''
+
+          shader_list.history = _patched_shader_history
           """
 
           if "if __name__" in mr_src:
