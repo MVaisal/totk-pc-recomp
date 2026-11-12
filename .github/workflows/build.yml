@@ -17,6 +17,16 @@ jobs:
           ref: dev
           submodules: recursive
 
+      - name: Generate Build Timestamp (WIB)
+        id: build_meta
+        run: |
+          $wib = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "SE Asia Standard Time")
+          $tsFile = $wib.ToString("yyyyMMdd-HHmm")
+          $tsVer  = $wib.ToString("yyyyMMdd.HHmm")
+          echo "ts_file=$tsFile" >> $env:GITHUB_OUTPUT
+          echo "ts_ver=$tsVer" >> $env:GITHUB_OUTPUT
+          Write-Host "Build Timestamp (WIB): $tsFile (Version suffix: $tsVer)"
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -105,9 +115,12 @@ jobs:
           Write-Host "Running native lifter recomp/gen.py on exefs..."
           python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
 
-      - name: Fetch Upstream Precomputed PGO & Configure make_release.py
+      - name: Fetch Upstream Precomputed PGO & Configure Version/make_release.py
+        id: upstream_meta
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_TS_VER: ${{ steps.build_meta.outputs.ts_ver }}
+          BUILD_TS_FILE: ${{ steps.build_meta.outputs.ts_file }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
           New-Item -ItemType Directory -Force -Path "upstream_licenses"
@@ -120,19 +133,72 @@ jobs:
             if ($repoInfo.parent) { $reposToTry = @($repoInfo.parent.full_name) + $reposToTry }
           } catch {}
 
+          $upstreamTag = ""
           foreach ($r in ($reposToTry | Select-Object -Unique)) {
             try {
               $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
-              $asset = $releases | ForEach-Object { $_.assets } | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
-              if ($asset) {
-                curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
-                break
+              $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
+              if ($rel) {
+                $upstreamTag = $rel.tag_name
+                $asset = $rel.assets | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
+                if ($asset) {
+                  curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
+                  break
+                }
               }
             } catch {}
           }
 
+          $env:UPSTREAM_TAG = $upstreamTag
+
           @'
-          import zipfile, pathlib, re
+          import zipfile, pathlib, re, os
+
+          ts_ver = os.environ.get("BUILD_TS_VER", "dev")
+          ts_file = os.environ.get("BUILD_TS_FILE", "dev")
+          up_tag = os.environ.get("UPSTREAM_TAG", "").strip()
+
+          # Cari file VERSION (atau version) di root repo
+          ver_file = None
+          for candidate in ["VERSION", "version", "VERSION.txt", "version.txt"]:
+              p = pathlib.Path(candidate)
+              if p.exists():
+                  ver_file = p
+                  break
+
+          raw_ver = ver_file.read_text(encoding="utf-8").strip() if ver_file else ""
+          print(f"Original VERSION file ({ver_file}): '{raw_ver}', Upstream release tag: '{up_tag}'")
+
+          # Ambil versi tertinggi antara file VERSION dan tag rilis upstream, lalu +1 pada angka terakhir
+          def parse_ver(s):
+              m = re.search(r"(\d+)\.(\d+)\.(\d+)", s)
+              return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+          v_local = parse_ver(raw_ver)
+          v_up    = parse_ver(up_tag)
+          candidates = [v for v in (v_local, v_up) if v is not None]
+
+          if candidates:
+              major, minor, patch = max(candidates)
+              next_base = f"{major}.{minor}.{patch + 1}"
+          else:
+              next_base = "0.4.1"
+
+          full_version = f"{next_base}-dev+{ts_ver}"
+          zip_name = f"TotK-Setup-{next_base}-dev-{ts_file}-windows.zip"
+          artifact_name = f"TotK-Setup-{next_base}-dev-{ts_file}-Windows"
+
+          # Timpa file VERSION di workspace agar dibaca langsung oleh make_release.py
+          if ver_file:
+              ver_file.write_text(full_version + "\n", encoding="utf-8")
+              print(f"Updated {ver_file} -> {full_version}")
+          else:
+              pathlib.Path("VERSION").write_text(full_version + "\n", encoding="utf-8")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
+              gh_out.write(f"full_version={full_version}\n")
+              gh_out.write(f"zip_name={zip_name}\n")
+              gh_out.write(f"artifact_name={artifact_name}\n")
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
@@ -159,6 +225,13 @@ jobs:
               r"\1\2\n\1    print('Skipping headless bundle check on GPU-less CI runner.')\n\1    return",
               mr_src,
               flags=re.MULTILINE
+          )
+
+          # Jika make_release.py menambahkan "+<git_hash>" setelah membaca VERSION, ganti dengan full_version bersih
+          mr_src = re.sub(
+              r'f"\{[^}]*ver[^}]*\}\+\{[^}]+\}"',
+              f'"{full_version}"',
+              mr_src
           )
 
           override_code = """
@@ -194,15 +267,15 @@ jobs:
               mr_src += "\n" + override_code
 
           mr_path.write_text(mr_src, encoding="utf-8")
-          print("Configured make_release.py successfully.")
+          print(f"Configured make_release.py with version: {full_version}")
           '@ | python -
 
       - name: Run Release Packaging Script
         run: |
-          python tools/make_release.py --out dist --zip TotK-Setup-Dev-windows.zip
+          python tools/make_release.py --out dist --zip "${{ steps.upstream_meta.outputs.zip_name }}"
 
       - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TotK-Setup-Dev-Windows
-          path: TotK-Setup-Dev-windows.zip
+          name: ${{ steps.upstream_meta.outputs.artifact_name }}
+          path: ${{ steps.upstream_meta.outputs.zip_name }}
