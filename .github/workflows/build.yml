@@ -1,10 +1,12 @@
 name: Build TotK Setup Dev
+run-name: "TotK Setup Dev #${{ github.run_number }}"
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-windows:
@@ -17,15 +19,13 @@ jobs:
           ref: dev
           submodules: recursive
 
-      - name: Generate Build Timestamp (WIB)
+      - name: Generate Build Date (WIB)
         id: build_meta
         run: |
           $wib = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "SE Asia Standard Time")
-          $tsFile = $wib.ToString("yyyyMMdd-HHmm")
-          $tsVer  = $wib.ToString("yyyyMMdd.HHmm")
-          echo "ts_file=$tsFile" >> $env:GITHUB_OUTPUT
-          echo "ts_ver=$tsVer" >> $env:GITHUB_OUTPUT
-          Write-Host "Build Timestamp (WIB): $tsFile (Version suffix: $tsVer)"
+          $tsDate = $wib.ToString("yyyyMMdd")
+          echo "ts_date=$tsDate" >> $env:GITHUB_OUTPUT
+          Write-Host "Build Date (WIB): $tsDate"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -115,26 +115,43 @@ jobs:
           Write-Host "Running native lifter recomp/gen.py on exefs..."
           python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
 
-      - name: Fetch Upstream Precomputed PGO & Configure Version/make_release.py
+      - name: Fetch Upstream Info, Update Run Title & Configure make_release.py
         id: upstream_meta
         env:
           GH_TOKEN: ${{ github.token }}
-          BUILD_TS_VER: ${{ steps.build_meta.outputs.ts_ver }}
-          BUILD_TS_FILE: ${{ steps.build_meta.outputs.ts_file }}
+          BUILD_DATE: ${{ steps.build_meta.outputs.ts_date }}
         run: |
           New-Item -ItemType Directory -Force -Path "upstream_data"
           New-Item -ItemType Directory -Force -Path "upstream_licenses"
           New-Item -ItemType Directory -Force -Path "build/pgo"
 
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
-          $reposToTry = @("TotKRecomp/TotKRecomp")
+          $upstreamRepo = "valentderah/totk-pc-recomp"
           try {
             $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers $headers
-            if ($repoInfo.parent) { $reposToTry = @($repoInfo.parent.full_name) + $reposToTry }
+            if ($repoInfo.parent) { $upstreamRepo = $repoInfo.parent.full_name }
           } catch {}
 
+          # Ambil 7 digit ID commit terakhir dari branch dev repo utama
+          $upstreamCommit = ""
+          try {
+            $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/dev" -Headers $headers
+            if ($commitInfo.sha) {
+              $upstreamCommit = $commitInfo.sha.Substring(0, 7)
+            }
+          } catch {
+            try {
+              $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/main" -Headers $headers
+              if ($commitInfo.sha) {
+                $upstreamCommit = $commitInfo.sha.Substring(0, 7)
+              }
+            } catch {}
+          }
+          Write-Host "Upstream repo ($upstreamRepo) latest commit: $upstreamCommit"
+
+          $reposToTry = @($upstreamRepo, "TotKRecomp/TotKRecomp") | Select-Object -Unique
           $upstreamTag = ""
-          foreach ($r in ($reposToTry | Select-Object -Unique)) {
+          foreach ($r in $reposToTry) {
             try {
               $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
               $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
@@ -150,15 +167,15 @@ jobs:
           }
 
           $env:UPSTREAM_TAG = $upstreamTag
+          $env:UPSTREAM_COMMIT = $upstreamCommit
 
           @'
           import zipfile, pathlib, re, os
 
-          ts_ver = os.environ.get("BUILD_TS_VER", "dev")
-          ts_file = os.environ.get("BUILD_TS_FILE", "dev")
-          up_tag = os.environ.get("UPSTREAM_TAG", "").strip()
+          ts_date = os.environ.get("BUILD_DATE", "dev")
+          up_tag  = os.environ.get("UPSTREAM_TAG", "").strip()
+          up_sha  = os.environ.get("UPSTREAM_COMMIT", "").strip()
 
-          # Cari file VERSION (atau version) di root repo
           ver_file = None
           for candidate in ["VERSION", "version", "VERSION.txt", "version.txt"]:
               p = pathlib.Path(candidate)
@@ -167,9 +184,7 @@ jobs:
                   break
 
           raw_ver = ver_file.read_text(encoding="utf-8").strip() if ver_file else ""
-          print(f"Original VERSION file ({ver_file}): '{raw_ver}', Upstream release tag: '{up_tag}'")
 
-          # Ambil versi tertinggi antara file VERSION dan tag rilis upstream, lalu +1 pada angka terakhir
           def parse_ver(s):
               m = re.search(r"(\d+)\.(\d+)\.(\d+)", s)
               return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
@@ -184,14 +199,16 @@ jobs:
           else:
               next_base = "0.4.1"
 
-          full_version = f"{next_base}-dev+{ts_ver}"
-          zip_name = f"TotK-Setup-{next_base}-dev-{ts_file}-windows.zip"
-          artifact_name = f"TotK-Setup-{next_base}-dev-{ts_file}-Windows"
+          sha_dot  = f".{up_sha}" if up_sha else ""
+          sha_dash = f"-{up_sha}" if up_sha else ""
 
-          # Timpa file VERSION di workspace agar dibaca langsung oleh make_release.py
+          full_version  = f"{next_base}-dev+{ts_date}{sha_dot}"
+          zip_name      = f"TotK-Setup-{next_base}-dev-{ts_date}{sha_dash}-windows.zip"
+          artifact_name = f"TotK-Setup-{next_base}-dev-{ts_date}{sha_dash}-Windows"
+          run_title     = f"TotK Setup {full_version} #${{ github.run_number }}"
+
           if ver_file:
               ver_file.write_text(full_version + "\n", encoding="utf-8")
-              print(f"Updated {ver_file} -> {full_version}")
           else:
               pathlib.Path("VERSION").write_text(full_version + "\n", encoding="utf-8")
 
@@ -199,6 +216,15 @@ jobs:
               gh_out.write(f"full_version={full_version}\n")
               gh_out.write(f"zip_name={zip_name}\n")
               gh_out.write(f"artifact_name={artifact_name}\n")
+              gh_out.write(f"run_title={run_title}\n")
+
+          if "GITHUB_STEP_SUMMARY" in os.environ:
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write(f"### Build Version: `{full_version}`\n")
+                  if up_sha:
+                      summary.write(f"- **Upstream Commit (`dev`):** `{up_sha}`\n")
+                  summary.write(f"- **Artifact:** `{artifact_name}`\n")
+                  summary.write(f"- **Archive:** `{zip_name}`\n")
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
@@ -219,7 +245,6 @@ jobs:
           mr_path = pathlib.Path("tools/make_release.py")
           mr_src = mr_path.read_text(encoding="utf-8")
 
-          # Nonaktifkan kegagalan bundle check pada VM CI tanpa GPU Vulkan (check.vulkan_no_device)
           mr_src = re.sub(
               r"^([ \t]*)(def\s+\w*check\w*\s*\([^)]*\)\s*:)",
               r"\1\2\n\1    print('Skipping headless bundle check on GPU-less CI runner.')\n\1    return",
@@ -227,7 +252,6 @@ jobs:
               flags=re.MULTILINE
           )
 
-          # Jika make_release.py menambahkan "+<git_hash>" setelah membaca VERSION, ganti dengan full_version bersih
           mr_src = re.sub(
               r'f"\{[^}]*ver[^}]*\}\+\{[^}]+\}"',
               f'"{full_version}"',
@@ -267,8 +291,20 @@ jobs:
               mr_src += "\n" + override_code
 
           mr_path.write_text(mr_src, encoding="utf-8")
-          print(f"Configured make_release.py with version: {full_version}")
           '@ | python -
+
+          # Perbarui judul workflow run di halaman GitHub Actions secara langsung
+          $newTitle = "${{ steps.upstream_meta.outputs.run_title }}"
+          if (-not $newTitle) {
+            $newTitle = "TotK Setup ${{ steps.upstream_meta.outputs.full_version }} #${{ github.run_number }}"
+          }
+          $body = @{ name = $newTitle } | ConvertTo-Json
+          try {
+            Invoke-RestMethod -Method Patch -Uri "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+            Write-Host "Updated workflow run title to: $newTitle"
+          } catch {
+            Write-Host "Could not update run title via API: $_"
+          }
 
       - name: Run Release Packaging Script
         run: |
