@@ -205,6 +205,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TotK-Setup-Dev-Windows
-          path: |
-            TotK-Setup-Dev-windows.zip
-            dist/
+          path: TotK-Setup-Dev-windows.zip
