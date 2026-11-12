@@ -78,7 +78,6 @@ jobs:
           $shaDash = if ($upstreamCommit) { "-$upstreamCommit" } else { "" }
 
           $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
-          $zipName      = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows.zip"
           $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
 
           # Timpa file VERSION di workspace agar dibaca installer
@@ -88,7 +87,6 @@ jobs:
           echo "upstream_repo=$upstreamRepo" >> $env:GITHUB_OUTPUT
           echo "upstream_commit=$upstreamCommit" >> $env:GITHUB_OUTPUT
           echo "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
-          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
           echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
 
           Write-Host "Build Version: $fullVersion | Artifact: $artifactName"
@@ -288,10 +286,11 @@ jobs:
 
       - name: Run Release Packaging Script
         run: |
-          python tools/make_release.py --out dist --zip "${{ steps.build_meta.outputs.zip_name }}"
+          python tools/make_release.py --out TotKRecomp-Dev
 
       - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build_meta.outputs.artifact_name }}
-          path: ${{ steps.build_meta.outputs.zip_name }}
+          path: TotKRecomp-Dev/
+          include-hidden-files: true
