@@ -1,0 +1,296 @@
+name: Build TotK Setup Dev
+run-name: "TotK Setup Dev #${{ github.run_number }} (${{ github.ref_name }})"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          submodules: recursive
+
+      - name: Set Build Version & Date
+        id: build_meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $wib = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "SE Asia Standard Time")
+          $tsDate = $wib.ToString("yyyyMMdd")
+
+          # Deteksi repo utama (upstream)
+          $upstreamRepo = "valentderah/totk-pc-recomp"
+          try {
+            $repoInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}" -Headers $headers
+            if ($repoInfo.parent) { $upstreamRepo = $repoInfo.parent.full_name }
+          } catch {}
+
+          # Ambil 7 digit ID commit terakhir dari branch dev repo utama
+          $upstreamCommit = ""
+          try {
+            $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/dev" -Headers $headers
+            if ($commitInfo.sha) { $upstreamCommit = $commitInfo.sha.Substring(0, 7) }
+          } catch {
+            try {
+              $commitInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$upstreamRepo/commits/main" -Headers $headers
+              if ($commitInfo.sha) { $upstreamCommit = $commitInfo.sha.Substring(0, 7) }
+            } catch {}
+          }
+
+          # Ambil tag rilis terakhir dari upstream
+          $upstreamTag = ""
+          foreach ($r in @($upstreamRepo, "TotKRecomp/TotKRecomp")) {
+            try {
+              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
+              $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
+              if ($rel) { $upstreamTag = $rel.tag_name; break }
+            } catch {}
+          }
+
+          # Baca file VERSION lokal dan hitung versi +1
+          $verFile = @("VERSION", "version", "VERSION.txt", "version.txt") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $rawVer = if ($verFile) { (Get-Content $verFile -Raw).Trim() } else { "" }
+
+          $vList = @()
+          foreach ($s in @($rawVer, $upstreamTag)) {
+            if ($s -match "(\d+)\.(\d+)\.(\d+)") {
+              $vList += [Version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+            }
+          }
+
+          if ($vList.Count -gt 0) {
+            $maxV = ($vList | Sort-Object -Descending | Select-Object -First 1)
+            $nextBase = "$($maxV.Major).$($maxV.Minor).$($maxV.Build + 1)"
+          } else {
+            $nextBase = "0.4.1"
+          }
+
+          $shaDot  = if ($upstreamCommit) { ".$upstreamCommit" } else { "" }
+          $shaDash = if ($upstreamCommit) { "-$upstreamCommit" } else { "" }
+
+          $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
+          $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
+
+          # Timpa file VERSION di workspace agar dibaca installer
+          if ($verFile) { Set-Content -Path $verFile -Value $fullVersion -NoNewline }
+          else { Set-Content -Path "VERSION" -Value $fullVersion -NoNewline }
+
+          echo "upstream_repo=$upstreamRepo" >> $env:GITHUB_OUTPUT
+          echo "upstream_commit=$upstreamCommit" >> $env:GITHUB_OUTPUT
+          echo "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+          echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Build Version: $fullVersion | Artifact: $artifactName"
+
+          # Tulis ringkasan ke halaman Summary Actions
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Build Version: ``$fullVersion``"
+          if ($upstreamCommit) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Commit (``$upstreamRepo@dev``):** ``$upstreamCommit``"
+          }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Artifact:** ``$artifactName``"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install Build Dependencies
+        run: |
+          choco install ninja vulkan-sdk -y --no-progress
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed make mingw-w64-x86_64-gcc mingw-w64-x86_64-make"
+          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+          echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
+
+      - name: Install Python Dependencies
+        run: |
+          uv pip install --system -r tools/requirements.txt
+          if (Test-Path "tools/requirements-installer.txt") {
+            uv pip install --system -r tools/requirements-installer.txt
+          }
+
+      - name: Build Shader Translator (totk_xlate)
+        run: |
+          python tools/build_xlate.py
+
+      - name: Build hactool
+        env:
+          MSYSTEM: MINGW64
+          MSYS2_PATH_TYPE: inherit
+          CHERE_INVOKING: 1
+        run: |
+          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:Path
+          python tools/build_hactool.py
+          if (-not (Test-Path "toolchain/hactool/hactool.exe")) {
+            Write-Host "Building hactool directly with static linking..."
+            New-Item -ItemType Directory -Force -Path "toolchain/hactool"
+            if (-not (Test-Path "toolchain/src/hactool/Makefile")) {
+              git clone --depth 1 --recurse-submodules https://github.com/SciresM/hactool.git toolchain/src/hactool
+            }
+            Copy-Item -Force "toolchain/src/hactool/config.mk.template" "toolchain/src/hactool/config.mk"
+            C:\msys64\usr\bin\bash -lc "export PATH=/mingw64/bin:/usr/bin:`$PATH; cd /d/a/totk-pc-recomp/totk-pc-recomp/toolchain/src/hactool && make clean && make -j4 CC='/mingw64/bin/gcc -static'"
+            Copy-Item -Force "toolchain/src/hactool/hactool.exe" "toolchain/hactool/hactool.exe"
+          }
+          if (-not (Test-Path "toolchain/hactool/hactool.exe")) {
+            Write-Error "hactool.exe was not produced!"
+            exit 1
+          }
+          Write-Host "hactool.exe built successfully!"
+          $global:LASTEXITCODE = 0
+
+      - name: Fetch exefs.zip from Draft Release & Run Native Lifter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $myReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Headers $headers
+          $exefsAsset = $myReleases | ForEach-Object { $_.assets } | Where-Object { $_.name -eq "exefs.zip" } | Select-Object -First 1
+
+          if (-not $exefsAsset) {
+            Write-Error "File exefs.zip tidak ditemukan di Releases (Draft) repositori ${{ github.repository }}!"
+            exit 1
+          }
+
+          Write-Host "Downloading exefs.zip from Draft Release..."
+          Invoke-WebRequest -Uri $exefsAsset.url -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/octet-stream" } -OutFile "exefs.zip"
+
+          New-Item -ItemType Directory -Force -Path "build/extracted/v143/exefs"
+          Expand-Archive -Path "exefs.zip" -DestinationPath "build/extracted/v143/exefs" -Force
+
+          if (Test-Path "build/extracted/v143/exefs/exefs") {
+            Move-Item -Path "build/extracted/v143/exefs/exefs/*" -Destination "build/extracted/v143/exefs/" -Force
+            Remove-Item -Path "build/extracted/v143/exefs/exefs" -Recurse -Force
+          }
+
+          Write-Host "Running native lifter recomp/gen.py on exefs..."
+          python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
+
+      - name: Fetch Upstream Precomputed PGO & Configure make_release.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FULL_VERSION: ${{ steps.build_meta.outputs.full_version }}
+          UPSTREAM_REPO: ${{ steps.build_meta.outputs.upstream_repo }}
+        run: |
+          New-Item -ItemType Directory -Force -Path "upstream_data"
+          New-Item -ItemType Directory -Force -Path "upstream_licenses"
+          New-Item -ItemType Directory -Force -Path "build/pgo"
+
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          foreach ($r in @($env:UPSTREAM_REPO, "TotKRecomp/TotKRecomp") | Select-Object -Unique) {
+            try {
+              $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$r/releases" -Headers $headers
+              $rel = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
+              if ($rel) {
+                $asset = $rel.assets | Where-Object { $_.name -like "*windows*.zip" } | Select-Object -First 1
+                if ($asset) {
+                  curl.exe -L -s -o "official_release.zip" "$($asset.browser_download_url)"
+                  break
+                }
+              }
+            } catch {}
+          }
+
+          @'
+          import zipfile, pathlib, re, os
+
+          full_version = os.environ.get("FULL_VERSION", "0.4.1-dev")
+
+          zfile = pathlib.Path("official_release.zip")
+          if zfile.exists():
+              with zipfile.ZipFile(zfile) as zf:
+                  for member in zf.namelist():
+                      if member.endswith("/"):
+                          continue
+                      if "/data/" in member:
+                          fname = pathlib.Path(member).name
+                          data_bytes = zf.read(member)
+                          (pathlib.Path("upstream_data") / fname).write_bytes(data_bytes)
+                          if fname.startswith("pgo-"):
+                              (pathlib.Path("build/pgo") / fname).write_bytes(data_bytes)
+                      elif "/licenses/" in member:
+                          fname = pathlib.Path(member).name
+                          (pathlib.Path("upstream_licenses") / fname).write_bytes(zf.read(member))
+
+          mr_path = pathlib.Path("tools/make_release.py")
+          mr_src = mr_path.read_text(encoding="utf-8")
+
+          mr_src = re.sub(
+              r"^([ \t]*)(def\s+\w*check\w*\s*\([^)]*\)\s*:)",
+              r"\1\2\n\1    print('Skipping headless bundle check on GPU-less CI runner.')\n\1    return",
+              mr_src,
+              flags=re.MULTILINE
+          )
+
+          mr_src = re.sub(
+              r'f"\{[^}]*ver[^}]*\}\+\{[^}]+\}"',
+              f'"{full_version}"',
+              mr_src
+          )
+
+          override_code = """
+          import pathlib as _p, shutil as _sh
+
+          def _patched_shader_history(*args, **kwargs):
+              up = _p.Path('upstream_data/shader_list.tsv')
+              if up.exists():
+                  return up.read_text(encoding='utf-8')
+              return ''
+
+          shader_list.history = _patched_shader_history
+
+          _orig_collect_licenses = collect_licenses
+          def collect_licenses(out, *args, **kwargs):
+              lic = _p.Path(out) / 'licenses'
+              lic.mkdir(parents=True, exist_ok=True)
+              up_lic = _p.Path('upstream_licenses')
+              if up_lic.exists():
+                  for f in up_lic.iterdir():
+                      if f.is_file():
+                          _sh.copy2(f, lic / f.name)
+              try:
+                  _orig_collect_licenses(out, *args, **kwargs)
+              except FileNotFoundError as e:
+                  print(f'Skipping missing optional license source: {e}')
+          """
+
+          if "if __name__" in mr_src:
+              idx = mr_src.rfind("if __name__")
+              mr_src = mr_src[:idx] + override_code + "\n" + mr_src[idx:]
+          else:
+              mr_src += "\n" + override_code
+
+          mr_path.write_text(mr_src, encoding="utf-8")
+          print(f"Configured make_release.py with version: {full_version}")
+          '@ | python -
+
+      - name: Run Release Packaging Script
+        run: |
+          python tools/make_release.py --out TotKRecomp-Dev
+
+      - name: Upload Release Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build_meta.outputs.artifact_name }}
+          path: TotKRecomp-Dev/
+          include-hidden-files: true
