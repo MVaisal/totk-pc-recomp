@@ -42,6 +42,7 @@ typedef enum {
     UI_MENU_FOV, UI_MENU_FOV_DESC,
     UI_MENU_SHADOW_RES, UI_MENU_SHADOW_RES_DESC, UI_MENU_SHADOW_RES_GAME,
     UI_MENU_ANISO, UI_MENU_ANISO_DESC, UI_MENU_ANISO_GAME,
+    UI_MENU_LOD_STEADY, UI_MENU_LOD_STEADY_DESC,
     UI_MENU_SHARPNESS, UI_MENU_SHARPNESS_DESC,
     UI_MENU_COLOR,            // group heading over the colour rows
     UI_MENU_COLOR_PRESET, UI_MENU_COLOR_PRESET_DESC, UI_MENU_COLOR_DEFAULT, UI_MENU_COLOR_VIVID, UI_MENU_COLOR_CLARITY,
@@ -83,13 +84,28 @@ typedef enum {
     UI_MENU_MODS_NONE,           // no mod folder yet: where to unpack one
     UI_MENU_MODS_OPEN, UI_MENU_MODS_OPEN_DESC,
     UI_MENU_MODS_ROW_DESC,       // printf: files it replaces, files it adds (as of this start)
-    UI_MENU_MODS_OVERRIDDEN,     // printf: files a higher mod serves instead, that mod's name
+    UI_MENU_MODS_OVERRIDDEN,     // printf: files a higher mod serves instead, that mod's name (the conflict table)
     UI_MENU_MODS_MOVE_HINT,
     UI_MENU_MODS_EMPTY, UI_MENU_MODS_SUBSDK, UI_MENU_MODS_EXEFS_LATER, UI_MENU_MODS_BAD_NAME,
     UI_MENU_MODS_EXEFS_UNSUPPORTED,  // printf: the file and why
     UI_MENU_MODS_EXEFS_OTHER,
     UI_MENU_MODS_EXEFS_ON,           // printf: its ExeFS patch files in use
     UI_MENU_MODS_REPLACES_BUILTIN,   // printf: its ExeFS patch files in use, the port's own patch sets they turn off
+    UI_MENU_MODS_CODE_SKIPPED,       // printf: its code modules in exefs, which do not load (used without its code)
+    UI_MENU_MODS_PLUGIN_ON,          // printf: the hooks of its plugin (runtime/plugin_init.c) that run
+    UI_MENU_MODS_PLUGIN_REFUSED,     // printf: its plugin file, why the build refused it (English, from the tool)
+    UI_MENU_MODS_PLUGIN_STAYS_OFF,   // after UI_MENU_MODS_PLUGIN_REFUSED when the whole mod stays off
+    UI_MENU_MODS_PLUGIN_OFF,         // printf: why its plugin's start differed from the build (English)
+    UI_MENU_MODS_WITHOUT_CODE,       // printf: the mod's name; its switch "use without its code" (TOTK_MODS_NO_CODE)
+    UI_MENU_MODS_WITHOUT_CODE_DESC,
+    UI_MENU_MODS_WITHOUT_CODE_ALL,   // why that switch cannot be changed: TOTK_MODS_WITHOUT_CODE=1
+    UI_MENU_MODS_EXEFS_SKIPPED,      // printf: its ExeFS patch files left out (used without its code), the first's reason
+    // The conflict table (mods.h ModConflict), printf: the count, the other mod's name
+    UI_MENU_MODS_OVERRIDES_FILES,    // files it serves instead of a lower mod's (UI_MENU_MODS_OVERRIDDEN: the reverse)
+    UI_MENU_MODS_DATA_OVERRIDDEN,    // bytes of main's data a higher mod wrote over its own
+    UI_MENU_MODS_OVERRIDES_DATA,     // bytes of main's data it wrote over a lower mod's
+    UI_MENU_MODS_CODE_OVERRIDDEN,    // code sites where a higher mod's patch runs instead of its own
+    UI_MENU_MODS_OVERRIDES_CODE,     // code sites where its patch runs instead of a lower mod's
     UI_MENU_MODS_OTHER_VERSION,  // printf: files named for another game version, read only when asked for by name
     UI_MENU_MODS_UNUSED,         // under the switch of a mod the port cannot use
     UI_MENU_MODS_CHEATS,         // printf: its cheats as read at start
@@ -103,9 +119,13 @@ typedef enum {
     UI_MENU_VOLUME_SFX, UI_MENU_VOLUME_SFX_DESC,
     UI_MENU_VOLUME_VOICE, UI_MENU_VOLUME_VOICE_DESC,
     UI_MENU_AUDIO_CHANNELS, UI_MENU_AUDIO_CHANNELS_DESC, UI_MENU_CHANNELS_AUTO, UI_MENU_CHANNELS_STEREO, UI_MENU_CHANNELS_51,
+    UI_MENU_AUDIO_DEVICE, UI_MENU_AUDIO_DEVICE_DESC, UI_MENU_AUDIO_DEVICE_DEFAULT,
 
     // Controls
     UI_MENU_MOTION, UI_MENU_MOTION_DESC,
+    UI_MENU_GYRO_CALIBRATION, UI_MENU_GYRO_CALIBRATION_DESC,
+    UI_MENU_GYRO_CALIBRATE, UI_MENU_GYRO_CALIBRATE_DESC, UI_MENU_GYRO_CALIBRATE_WAIT,
+    UI_MENU_GYRO_CALIBRATED, UI_MENU_GYRO_CALIBRATE_FAILED, UI_MENU_GYRO_CALIBRATE_MOVED,
     UI_MENU_RUMBLE_STRENGTH, UI_MENU_RUMBLE_STRENGTH_DESC,
     UI_MENU_RUMBLE_CURVE, UI_MENU_RUMBLE_CURVE_DESC,
     UI_MENU_RUMBLE_TRIGGERS, UI_MENU_RUMBLE_TRIGGERS_DESC,
@@ -169,10 +189,10 @@ typedef enum {
     UI_KEY_ENTER, UI_KEY_BACKSPACE, UI_KEY_RSHIFT, UI_KEY_RCTRL, UI_KEY_LALT, UI_KEY_CAPSLOCK, UI_KEY_INSERT,
     UI_KEY_DELETE, UI_KEY_HOME, UI_KEY_END, UI_KEY_PAGEUP, UI_KEY_PAGEDOWN,
     UI_KEY_NUM_FMT,           // "Num %s": a numpad key
-    // gamepad buttons, in pad id order PAD_SOUTH .. PAD_RPADDLE2, then the PlayStation face labels
+    // gamepad buttons, in pad id order PAD_SOUTH .. PAD_TOUCHPAD, then the PlayStation face labels
     UI_PAD_SOUTH, UI_PAD_EAST, UI_PAD_WEST, UI_PAD_NORTH, UI_PAD_LSTICK, UI_PAD_RSTICK, UI_PAD_L, UI_PAD_R,
     UI_PAD_START, UI_PAD_BACK, UI_PAD_DPAD_LEFT, UI_PAD_DPAD_UP, UI_PAD_DPAD_RIGHT, UI_PAD_DPAD_DOWN, UI_PAD_ZL,
-    UI_PAD_ZR, UI_PAD_LPADDLE1, UI_PAD_RPADDLE1, UI_PAD_LPADDLE2, UI_PAD_RPADDLE2,
+    UI_PAD_ZR, UI_PAD_LPADDLE1, UI_PAD_RPADDLE1, UI_PAD_LPADDLE2, UI_PAD_RPADDLE2, UI_PAD_TOUCHPAD,
     UI_PAD_CROSS, UI_PAD_CIRCLE, UI_PAD_SQUARE, UI_PAD_TRIANGLE,
 
     // Amiibo tab (ui/amiibo_page.cpp): the dump folder and its files, the emulated NFC reader and its state, the

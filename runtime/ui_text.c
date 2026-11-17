@@ -96,6 +96,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_ANISO] = "Texture filtering",
     [UI_MENU_ANISO_DESC] = "Anisotropic filtering of surface textures: ground, roads and walls seen at a shallow angle stay sharp into the distance instead of blurring. Game: the level the game asks for, as on the Switch.",
     [UI_MENU_ANISO_GAME] = "Game",
+    [UI_MENU_LOD_STEADY] = "Steady detail under load",
+    [UI_MENU_LOD_STEADY_DESC] = "Skips the game's setup for lowering model and texture detail when the frame rate drops, as the emulator mod Disable LOD Quality Reduction does. Game versions 1.2.1 and 1.4.3. Leave it off on weak PCs: there this drop keeps the frame rate up.",
     [UI_MENU_SHARPNESS] = "FSR sharpness",
     [UI_MENU_SHARPNESS_DESC] = "Sharpening after FSR scaling; 0 turns it off.",
     [UI_MENU_COLOR] = "Colour",
@@ -217,11 +219,12 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_MODS_ROW_DESC] = "Game files it replaces: %u. New files it adds: %u.",
     [UI_MENU_MODS_OVERRIDDEN] = "%u of its files come from %s, which is higher in the list.",
     [UI_MENU_MODS_MOVE_HINT] = "The top face button or Ctrl+Up moves it up, the left face button or Ctrl+Down moves it "
-                               "down. When two mods change the same file, the higher one wins. Changes apply after a "
-                               "restart.",
+                               "down. When two mods change the same file, game data or code, the higher one wins. "
+                               "Changes apply after a restart.",
     [UI_MENU_MODS_EMPTY] = "This folder has no romfs, exefs or cheats files.",
     [UI_MENU_MODS_SUBSDK] = "This mod brings its own game code (a subsdk plugin or a replaced main). The port cannot "
-                            "load code modules, so the whole mod stays off.",
+                            "load code modules, so the whole mod stays off. Its switch \"Use ... without its code\" "
+                            "below uses the rest of it.",
     [UI_MENU_MODS_EXEFS_LATER] = "This mod patches the game code (exefs). The game builds the patches in when it "
                                  "starts next (a rebuild of a few minutes); until then the whole mod stays off.",
     [UI_MENU_MODS_CHEATS] = "Cheats: %d. Switch them on the Cheats tab.",
@@ -249,8 +252,23 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_CHANNELS_DESC] = "Stereo or 5.1 surround output. Automatic picks 5.1 when the Windows speaker setup "
                                     "has six or more channels. Applies after a restart.",
     [UI_MENU_CHANNELS_AUTO] = "Automatic", [UI_MENU_CHANNELS_STEREO] = "Stereo", [UI_MENU_CHANNELS_51] = "5.1 surround",
+    [UI_MENU_AUDIO_DEVICE] = "Output device",
+    [UI_MENU_AUDIO_DEVICE_DESC] = "Where the sound plays. System default follows the Windows default device. A chosen "
+                                  "device that is unplugged falls back to the system default until it is back. "
+                                  "Applies at once.",
+    [UI_MENU_AUDIO_DEVICE_DEFAULT] = "System default",
 
     [UI_MENU_MOTION] = "Motion controls", [UI_MENU_MOTION_DESC] = "Aiming with the controller's gyroscope.",
+    [UI_MENU_GYRO_CALIBRATION] = "Gyro bias calibration",
+    [UI_MENU_GYRO_CALIBRATION_DESC] = "Subtracts the controller's resting drift, measured with the calibrate row "
+                                      "below. The measured values stay saved when this is off.",
+    [UI_MENU_GYRO_CALIBRATE] = "Calibrate gyro",
+    [UI_MENU_GYRO_CALIBRATE_DESC] = "Measures the gyroscope's resting drift and removes it. Put the controller down or "
+                                    "hold it still for two seconds.",
+    [UI_MENU_GYRO_CALIBRATE_WAIT] = "Calibrating...",
+    [UI_MENU_GYRO_CALIBRATED] = "%s, calibrated",
+    [UI_MENU_GYRO_CALIBRATE_FAILED] = "Calibration failed",
+    [UI_MENU_GYRO_CALIBRATE_MOVED] = "Controller moved: hold it still and try again",
     [UI_MENU_RUMBLE_STRENGTH] = "Vibration strength",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "How strong the controller vibrates.",
     [UI_MENU_RUMBLE_CURVE] = "Vibration curve",
@@ -394,6 +412,7 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_PAD_DPAD_DOWN] = "D-pad down", [UI_PAD_ZL] = "Left trigger", [UI_PAD_ZR] = "Right trigger",
     [UI_PAD_LPADDLE1] = "Left back button", [UI_PAD_RPADDLE1] = "Right back button",
     [UI_PAD_LPADDLE2] = "Left back button 2", [UI_PAD_RPADDLE2] = "Right back button 2",
+    [UI_PAD_TOUCHPAD] = "Touchpad click",
     [UI_PAD_CROSS] = "Cross", [UI_PAD_CIRCLE] = "Circle", [UI_PAD_SQUARE] = "Square", [UI_PAD_TRIANGLE] = "Triangle",
 
     [UI_MENU_AMIIBO_DIR] = "Amiibo folder",
@@ -559,11 +578,36 @@ static const char *const text_en[UI_TEXT_COUNT] = {
                                     "builds them in (a few minutes) and starts the game again. Progress since your "
                                     "last save is lost.",
     [UI_MENU_MODS_EXEFS_UNSUPPORTED] = "This mod patches the game code (exefs) in a way the port cannot apply, so the "
-                                       "whole mod stays off. %s",
+                                       "whole mod stays off. Its switch \"Use ... without its code\" below uses the "
+                                       "rest of it. %s",
     [UI_MENU_MODS_EXEFS_OTHER] = "Its code patches (exefs) are made for another game version.",
     [UI_MENU_MODS_EXEFS_ON] = "Code patches in use: %d files.",
     [UI_MENU_MODS_REPLACES_BUILTIN] = "Code patches in use: %d files. They replace the port's own patch %s, which "
                                       "stays off while this mod is on.",
+    [UI_MENU_MODS_CODE_SKIPPED] = "Its own game code (%s) does not load: the rest of the mod is used. Switch the mod "
+                                  "off if the game misbehaves with it.",
+    [UI_MENU_MODS_PLUGIN_ON] = "Its plugin runs: %d hooks into the game code.",
+    [UI_MENU_MODS_PLUGIN_REFUSED] = "Its plugin %s cannot run in the port: %s.",
+    [UI_MENU_MODS_PLUGIN_STAYS_OFF] = "The whole mod stays off. Its switch \"Use ... without its code\" below uses the "
+                                      "rest of it.",
+    [UI_MENU_MODS_PLUGIN_OFF] = "Its plugin stays off this time: it started differently from the build (%s). The game "
+                                "rebuilds it at the next start.",
+    [UI_MENU_MODS_WITHOUT_CODE] = "Use %s without its code",
+    [UI_MENU_MODS_WITHOUT_CODE_DESC] = "The mod above brings code the port cannot run: its own game code (a subsdk "
+                                       "plugin or a replaced main) or code patches (exefs) the port cannot apply. Off: "
+                                       "the whole mod stays off. On: that code is left out and the rest of the mod is "
+                                       "used: its RomFS files, cheats and the code patches that work. Its files may "
+                                       "expect the missing code; switch it off again if the game misbehaves. Applies "
+                                       "at the next start.",
+    [UI_MENU_MODS_WITHOUT_CODE_ALL] = "On for every mod: mods_without_code = 1 in totk.ini.",
+    [UI_MENU_MODS_EXEFS_SKIPPED] = "%u of its code patch files (exefs) cannot be applied and are left out: the rest of "
+                                   "the mod is used. %s",
+    [UI_MENU_MODS_OVERRIDES_FILES] = "%u of its files replace those of %s, which is lower in the list.",
+    [UI_MENU_MODS_DATA_OVERRIDDEN] = "%u bytes of its game data changes come from %s, which is higher in the list.",
+    [UI_MENU_MODS_OVERRIDES_DATA] = "%u bytes of its game data changes replace those of %s, which is lower in the "
+                                    "list.",
+    [UI_MENU_MODS_CODE_OVERRIDDEN] = "%u of its code patch sites are overridden by %s, which is higher in the list.",
+    [UI_MENU_MODS_OVERRIDES_CODE] = "It overrides %u code patch sites of %s, which is lower in the list.",
 };
 
 static const char *const text_ru[UI_TEXT_COUNT] = {
@@ -629,6 +673,8 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_ANISO] = "Фильтрация текстур",
     [UI_MENU_ANISO_DESC] = "Анизотропная фильтрация текстур поверхностей: земля, дороги и стены под острым углом остаются чёткими вдали, а не размываются. Игра: уровень, который запрашивает игра, как на Switch.",
     [UI_MENU_ANISO_GAME] = "Игра",
+    [UI_MENU_LOD_STEADY] = "Стабильная детализация под нагрузкой",
+    [UI_MENU_LOD_STEADY_DESC] = "Пропускает настройку игры, снижающую детализацию моделей и текстур при падении частоты кадров, как эмуляторный мод Disable LOD Quality Reduction. Только для версий игры 1.2.1 и 1.4.3. На слабых ПК не включайте: там это снижение и держит частоту кадров.",
     [UI_MENU_SHARPNESS] = "Резкость FSR",
     [UI_MENU_SHARPNESS_DESC] = "Повышение резкости после масштабирования FSR; 0 выключает его.",
     [UI_MENU_COLOR] = "Цвет",
@@ -750,10 +796,12 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_MODS_ROW_DESC] = "Заменяет файлов игры: %u. Добавляет новых файлов: %u.",
     [UI_MENU_MODS_OVERRIDDEN] = "%u его файлов берутся из мода %s, он выше в списке.",
     [UI_MENU_MODS_MOVE_HINT] = "Верхняя кнопка или Ctrl+Вверх поднимает мод, левая кнопка или Ctrl+Вниз опускает. Если "
-                               "два мода меняют один файл, побеждает верхний. Изменения действуют после перезапуска.",
+                               "два мода меняют один файл, данные или код игры, побеждает верхний. Изменения действуют "
+                               "после перезапуска.",
     [UI_MENU_MODS_EMPTY] = "В этой папке нет файлов romfs, exefs или cheats.",
     [UI_MENU_MODS_SUBSDK] = "Этот мод приносит свой код игры (плагин subsdk или заменённый main). Порт не загружает "
-                            "модули кода, поэтому мод выключен целиком.",
+                            "модули кода, поэтому мод выключен целиком. Его переключатель «... без его кода» ниже "
+                            "включает остальную часть мода.",
     [UI_MENU_MODS_EXEFS_LATER] = "Этот мод меняет код игры (exefs). Игра соберёт эти патчи при следующем запуске "
                                  "(пересборка на несколько минут); до тех пор мод выключен целиком.",
     [UI_MENU_MODS_CHEATS] = "Читов: %d. Они включаются на вкладке «Читы».",
@@ -780,8 +828,23 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_CHANNELS_DESC] = "Стерео или объёмный звук 5.1. Автоматически выбирается 5.1, если в Windows "
                                     "настроено шесть каналов или больше. Применяется после перезапуска.",
     [UI_MENU_CHANNELS_AUTO] = "Автоматически", [UI_MENU_CHANNELS_STEREO] = "Стерео", [UI_MENU_CHANNELS_51] = "Объёмный 5.1",
+    [UI_MENU_AUDIO_DEVICE] = "Устройство вывода",
+    [UI_MENU_AUDIO_DEVICE_DESC] = "Куда выводится звук. Системное по умолчанию следует за устройством по умолчанию "
+                                  "в Windows. Если выбранное устройство отключить, звук идёт на системное, пока оно "
+                                  "не вернётся. Применяется сразу.",
+    [UI_MENU_AUDIO_DEVICE_DEFAULT] = "Системное по умолчанию",
 
     [UI_MENU_MOTION] = "Управление движением", [UI_MENU_MOTION_DESC] = "Прицеливание гироскопом контроллера.",
+    [UI_MENU_GYRO_CALIBRATION] = "Калибровка смещения гироскопа",
+    [UI_MENU_GYRO_CALIBRATION_DESC] = "Убирает покоящееся смещение контроллера, измеренное строкой калибровки ниже. "
+                                      "Измеренные значения сохраняются и при выключенном состоянии.",
+    [UI_MENU_GYRO_CALIBRATE] = "Калибровка гироскопа",
+    [UI_MENU_GYRO_CALIBRATE_DESC] = "Измеряет смещение гироскопа в покое и убирает его. Положите контроллер или "
+                                    "держите его неподвижно две секунды.",
+    [UI_MENU_GYRO_CALIBRATE_WAIT] = "Калибровка...",
+    [UI_MENU_GYRO_CALIBRATED] = "%s, откалиброван",
+    [UI_MENU_GYRO_CALIBRATE_FAILED] = "Калибровка не удалась",
+    [UI_MENU_GYRO_CALIBRATE_MOVED] = "Контроллер сдвинулся: держите его неподвижно и повторите",
     [UI_MENU_RUMBLE_STRENGTH] = "Сила вибрации",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "Насколько сильно вибрирует контроллер.",
     [UI_MENU_RUMBLE_CURVE] = "Кривая вибрации",
@@ -929,6 +992,7 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_PAD_ZR] = "Правый курок",
     [UI_PAD_LPADDLE1] = "Левая задняя кнопка", [UI_PAD_RPADDLE1] = "Правая задняя кнопка",
     [UI_PAD_LPADDLE2] = "Левая задняя кнопка 2", [UI_PAD_RPADDLE2] = "Правая задняя кнопка 2",
+    [UI_PAD_TOUCHPAD] = "Нажатие на тачпад",
     [UI_PAD_CROSS] = "Крест", [UI_PAD_CIRCLE] = "Круг", [UI_PAD_SQUARE] = "Квадрат", [UI_PAD_TRIANGLE] = "Треугольник",
 
     [UI_MENU_AMIIBO_DIR] = "Папка amiibo",
@@ -1095,11 +1159,35 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
                                     "собирает их (несколько минут) и снова запускает игру. Прогресс после последнего "
                                     "сохранения будет потерян.",
     [UI_MENU_MODS_EXEFS_UNSUPPORTED] = "Этот мод меняет код игры (exefs) так, как порт применить не может, поэтому мод "
-                                       "выключен целиком. %s",
+                                       "выключен целиком. Его переключатель «... без его кода» ниже включает остальную "
+                                       "часть мода. %s",
     [UI_MENU_MODS_EXEFS_OTHER] = "Его патчи кода (exefs) сделаны для другой версии игры.",
     [UI_MENU_MODS_EXEFS_ON] = "Патчи кода в работе: файлов: %d.",
     [UI_MENU_MODS_REPLACES_BUILTIN] = "Патчи кода в работе: файлов: %d. Они заменяют собственный патч порта %s, "
                                       "который выключен, пока этот мод включён.",
+    [UI_MENU_MODS_CODE_SKIPPED] = "Его собственный код игры (%s) не загружается: используется остальная часть мода. "
+                                  "Выключите мод, если игра с ним ведёт себя странно.",
+    [UI_MENU_MODS_PLUGIN_ON] = "Его плагин работает: перехватов в коде игры: %d.",
+    [UI_MENU_MODS_PLUGIN_REFUSED] = "Его плагин %s не может работать в порте: %s.",
+    [UI_MENU_MODS_PLUGIN_STAYS_OFF] = "Мод выключен целиком. Его переключатель «... без его кода» ниже включает "
+                                      "остальную часть мода.",
+    [UI_MENU_MODS_PLUGIN_OFF] = "Его плагин в этот раз выключен: он запустился не так, как при сборке (%s). Игра "
+                                "пересоберёт его при следующем запуске.",
+    [UI_MENU_MODS_WITHOUT_CODE] = "%s без его кода",
+    [UI_MENU_MODS_WITHOUT_CODE_DESC] = "Мод выше приносит код, который порт не может запустить: свой код игры (плагин "
+                                       "subsdk или заменённый main) или патчи кода (exefs), которые порт не может "
+                                       "применить. Выкл.: мод выключен целиком. Вкл.: этот код пропускается, а "
+                                       "остальная часть мода используется — его файлы RomFS, читы и работающие патчи "
+                                       "кода. Его файлы могут рассчитывать на отсутствующий код; выключите снова, если "
+                                       "игра ведёт себя странно. Применяется при следующем запуске.",
+    [UI_MENU_MODS_WITHOUT_CODE_ALL] = "Включено для всех модов: mods_without_code = 1 в totk.ini.",
+    [UI_MENU_MODS_EXEFS_SKIPPED] = "Патчи кода (exefs), которые порт не может применить, пропущены (файлов: %u): "
+                                   "используется остальная часть мода. %s",
+    [UI_MENU_MODS_OVERRIDES_FILES] = "%u его файлов заменяют файлы мода %s, он ниже в списке.",
+    [UI_MENU_MODS_DATA_OVERRIDDEN] = "%u байт его изменений данных игры берутся из мода %s, он выше в списке.",
+    [UI_MENU_MODS_OVERRIDES_DATA] = "%u байт его изменений данных игры заменяют изменения мода %s, он ниже в списке.",
+    [UI_MENU_MODS_CODE_OVERRIDDEN] = "%u мест его патчей кода перекрыты модом %s, он выше в списке.",
+    [UI_MENU_MODS_OVERRIDES_CODE] = "Он перекрывает %u мест патчей кода мода %s, он ниже в списке.",
 };
 
 static const char *const text_pt_br[UI_TEXT_COUNT] = {
@@ -1121,10 +1209,12 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_MODS_ROW_DESC] = "Arquivos do jogo que substitui: %u. Arquivos novos que adiciona: %u.",
     [UI_MENU_MODS_OVERRIDDEN] = "%u dos seus arquivos vêm de %s, que está acima na lista.",
     [UI_MENU_MODS_MOVE_HINT] = "O botão de cima ou Ctrl+Cima sobe o mod, o botão da esquerda ou Ctrl+Baixo desce. "
-                               "Quando dois mods mudam o mesmo arquivo, vale o de cima. As mudanças valem após reiniciar.",
+                               "Quando dois mods mudam o mesmo arquivo, dado ou código do jogo, vale o de cima. As "
+                               "mudanças valem após reiniciar.",
     [UI_MENU_MODS_EMPTY] = "Esta pasta não tem arquivos romfs, exefs ou cheats.",
-    [UI_MENU_MODS_SUBSDK] = "Este mod traz código próprio do jogo (um plugin subsdk ou um main substituído). O port não "
-                            "carrega módulos de código, então o mod inteiro fica desligado.",
+    [UI_MENU_MODS_SUBSDK] = "Este mod traz código próprio do jogo (um plugin subsdk ou um main substituído). O port "
+                            "não carrega módulos de código, então o mod inteiro fica desligado. A chave \"Usar ... sem "
+                            "o código dele\", abaixo, usa o resto dele.",
     [UI_MENU_MODS_EXEFS_LATER] = "Este mod altera o código do jogo (exefs). O jogo compila esses patches na próxima "
                                  "vez que iniciar (uma recompilação de alguns minutos); até lá o mod inteiro fica "
                                  "desligado.",
@@ -1230,8 +1320,23 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_CHANNELS_DESC] = "Saída estéreo ou surround 5.1. Automático escolhe 5.1 quando a configuração de "
                                     "alto-falantes do Windows tem seis canais ou mais. Vale após reiniciar.",
     [UI_MENU_CHANNELS_AUTO] = "Automático", [UI_MENU_CHANNELS_STEREO] = "Estéreo", [UI_MENU_CHANNELS_51] = "Surround 5.1",
+    [UI_MENU_AUDIO_DEVICE] = "Dispositivo de saída",
+    [UI_MENU_AUDIO_DEVICE_DESC] = "Onde o som toca. Padrão do sistema segue o dispositivo padrão do Windows. Um "
+                                  "dispositivo escolhido que for desconectado volta ao padrão do sistema até "
+                                  "reaparecer. Vale na hora.",
+    [UI_MENU_AUDIO_DEVICE_DEFAULT] = "Padrão do sistema",
 
     [UI_MENU_MOTION] = "Controles de movimento", [UI_MENU_MOTION_DESC] = "Mirar com o giroscópio do controle.",
+    [UI_MENU_GYRO_CALIBRATION] = "Calibração do desvio do giroscópio",
+    [UI_MENU_GYRO_CALIBRATION_DESC] = "Remove o desvio de repouso do controle, medido pela linha de calibração "
+                                      "abaixo. Os valores medidos ficam salvos mesmo com isto desligado.",
+    [UI_MENU_GYRO_CALIBRATE] = "Calibrar giroscópio",
+    [UI_MENU_GYRO_CALIBRATE_DESC] = "Mede o desvio de repouso do giroscópio e o remove. Apoie o controle ou "
+                                    "segure-o parado por dois segundos.",
+    [UI_MENU_GYRO_CALIBRATE_WAIT] = "Calibrando...",
+    [UI_MENU_GYRO_CALIBRATED] = "%s, calibrado",
+    [UI_MENU_GYRO_CALIBRATE_FAILED] = "Falha na calibração",
+    [UI_MENU_GYRO_CALIBRATE_MOVED] = "O controle se moveu: segure-o parado e tente de novo",
     [UI_MENU_RUMBLE_STRENGTH] = "Intensidade da vibração",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "Quão forte o controle vibra.",
     [UI_MENU_RUMBLE_CURVE] = "Curva da vibração",
@@ -1312,6 +1417,7 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_PAD_ZL] = "Gatilho esquerdo", [UI_PAD_ZR] = "Gatilho direito",
     [UI_PAD_LPADDLE1] = "Botão traseiro esquerdo", [UI_PAD_RPADDLE1] = "Botão traseiro direito",
     [UI_PAD_LPADDLE2] = "Botão traseiro esquerdo 2", [UI_PAD_RPADDLE2] = "Botão traseiro direito 2",
+    [UI_PAD_TOUCHPAD] = "Clique do touchpad",
     [UI_PAD_CROSS] = "Cruz", [UI_PAD_CIRCLE] = "Círculo", [UI_PAD_SQUARE] = "Quadrado", [UI_PAD_TRIANGLE] = "Triângulo",
 
     [UI_MENU_AMIIBO_DIR] = "Pasta de amiibo",
@@ -1472,6 +1578,10 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
                            "ângulo raso continuam nítidos ao longe em vez de borrar. Jogo: o nível que o jogo pede, "
                            "como no Switch.",
     [UI_MENU_ANISO_GAME] = "Jogo",
+    [UI_MENU_LOD_STEADY] = "Detalhe estável sob carga",
+    [UI_MENU_LOD_STEADY_DESC] = "Pula a configuração do jogo que reduz o detalhe de modelos e texturas quando a taxa "
+                                "de quadros cai, como faz o mod de emulador Disable LOD Quality Reduction. Só nas "
+                                "versões 1.2.1 e 1.4.3 do jogo. Deixe desligado em PCs fracos: lá essa redução mantém a taxa de quadros.",
     [UI_MENU_COLOR] = "Cor",
     [UI_MENU_COLOR_PRESET] = "Perfil de cor",
     [UI_MENU_COLOR_PRESET_DESC] = "Define os quatro valores abaixo. Vívido: mais contraste e saturação, sombras um "
@@ -1664,11 +1774,38 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
                                     "jogo; o instalador os compila (alguns minutos) e inicia o jogo de novo. O "
                                     "progresso desde o último salvamento é perdido.",
     [UI_MENU_MODS_EXEFS_UNSUPPORTED] = "Este mod altera o código do jogo (exefs) de um jeito que o port não consegue "
-                                       "aplicar, então o mod inteiro fica desligado. %s",
+                                       "aplicar, então o mod inteiro fica desligado. A chave \"Usar ... sem o código "
+                                       "dele\", abaixo, usa o resto dele. %s",
     [UI_MENU_MODS_EXEFS_OTHER] = "Os patches de código dele (exefs) são para outra versão do jogo.",
     [UI_MENU_MODS_EXEFS_ON] = "Patches de código em uso: %d arquivos.",
     [UI_MENU_MODS_REPLACES_BUILTIN] = "Patches de código em uso: %d arquivos. Eles substituem o patch do próprio port "
                                       "%s, que fica desligado enquanto este mod está ligado.",
+    [UI_MENU_MODS_CODE_SKIPPED] = "O código próprio do jogo dele (%s) não é carregado: o resto do mod é usado. "
+                                  "Desligue o mod se o jogo se comportar mal com ele.",
+    [UI_MENU_MODS_PLUGIN_ON] = "O plugin dele está ativo: %d ganchos no código do jogo.",
+    [UI_MENU_MODS_PLUGIN_REFUSED] = "O plugin %s dele não pode rodar no port: %s.",
+    [UI_MENU_MODS_PLUGIN_STAYS_OFF] = "O mod inteiro fica desligado. A chave \"Usar ... sem o código dele\", abaixo, "
+                                      "usa o resto dele.",
+    [UI_MENU_MODS_PLUGIN_OFF] = "O plugin dele fica desligado desta vez: ele iniciou de forma diferente da compilação "
+                                "(%s). O jogo o recompila na próxima inicialização.",
+    [UI_MENU_MODS_WITHOUT_CODE] = "Usar %s sem o código dele",
+    [UI_MENU_MODS_WITHOUT_CODE_DESC] = "O mod acima traz código que o port não consegue rodar: código próprio do jogo "
+                                       "(um plugin subsdk ou um main substituído) ou patches de código (exefs) que o "
+                                       "port não consegue aplicar. Desligado: o mod inteiro fica desligado. Ligado: "
+                                       "esse código fica de fora e o resto do mod é usado: os arquivos RomFS, cheats e "
+                                       "os patches de código que funcionam. Os arquivos dele podem depender do código "
+                                       "que falta; desligue de novo se o jogo se comportar mal. Vale na próxima "
+                                       "inicialização.",
+    [UI_MENU_MODS_WITHOUT_CODE_ALL] = "Ligado para todos os mods: mods_without_code = 1 no totk.ini.",
+    [UI_MENU_MODS_EXEFS_SKIPPED] = "%u arquivos de patch de código (exefs) dele não podem ser aplicados e ficam de "
+                                   "fora: o resto do mod é usado. %s",
+    [UI_MENU_MODS_OVERRIDES_FILES] = "%u dos seus arquivos substituem os de %s, que está abaixo na lista.",
+    [UI_MENU_MODS_DATA_OVERRIDDEN] = "%u bytes das suas mudanças nos dados do jogo vêm de %s, que está acima na lista.",
+    [UI_MENU_MODS_OVERRIDES_DATA] = "%u bytes das suas mudanças nos dados do jogo substituem as de %s, que está abaixo "
+                                    "na lista.",
+    [UI_MENU_MODS_CODE_OVERRIDDEN] = "%u pontos dos seus patches de código são sobrepostos por %s, que está acima na "
+                                     "lista.",
+    [UI_MENU_MODS_OVERRIDES_CODE] = "Ele sobrepõe %u pontos dos patches de código de %s, que está abaixo na lista.",
 };
 
 // Simplified Chinese: this row covers the software keyboard and the whole menu, so the menu and the overlay read Chinese
@@ -1697,10 +1834,9 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_MODS_OPEN_DESC] = "显示游戏加载模组的文件夹。不存在时会创建它。",
     [UI_MENU_MODS_ROW_DESC] = "替换的游戏文件：%u。新增的文件：%u。",
     [UI_MENU_MODS_OVERRIDDEN] = "它的 %u 个文件改用列表中更靠上的 %s 的文件。",
-    [UI_MENU_MODS_MOVE_HINT] = "上方按钮或 Ctrl+上 上移，左侧按钮或 Ctrl+下 下移。两个模组修改同一个文件时，以靠上的为准。"
-                               "更改在重启后生效。",
+    [UI_MENU_MODS_MOVE_HINT] = "上方按钮或 Ctrl+上 上移，左侧按钮或 Ctrl+下 下移。两个模组修改同一个文件、游戏数据或代码时，以靠上的为准。更改在重启后生效。",
     [UI_MENU_MODS_EMPTY] = "此文件夹中没有 romfs、exefs 或 cheats 文件。",
-    [UI_MENU_MODS_SUBSDK] = "此模组带有自己的游戏代码（subsdk 插件或替换的 main）。移植版无法加载代码模块，因此整个模组保持关闭。",
+    [UI_MENU_MODS_SUBSDK] = "此模组带有自己的游戏代码（subsdk 插件或替换的 main）。移植版无法加载代码模块，因此整个模组保持关闭。打开下方它的“不带代码使用 ...”开关即可使用其余部分。",
     [UI_MENU_MODS_EXEFS_LATER] = "此模组修改游戏代码（exefs）。游戏会在下次启动时把这些补丁构建进去（重新构建需要几分钟）；在此之前整个模组保持关闭。",
     [UI_MENU_MODS_CHEATS] = "金手指：%d 个。在“金手指”标签页中开关。",
     [UI_MENU_MODS_CHEATS_FILE] = "此游戏版本的金手指在启动时从此模组的 cheats\\%s 读取。",
@@ -1843,8 +1979,20 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_AUDIO_CHANNELS] = "扬声器",
     [UI_MENU_AUDIO_CHANNELS_DESC] = "立体声或 5.1 环绕声输出。选择自动时，若 Windows 扬声器设置有六个或更多声道则使用 5.1。重启后生效。",
     [UI_MENU_CHANNELS_AUTO] = "自动", [UI_MENU_CHANNELS_STEREO] = "立体声", [UI_MENU_CHANNELS_51] = "5.1 环绕声",
+    [UI_MENU_AUDIO_DEVICE] = "输出设备",
+    [UI_MENU_AUDIO_DEVICE_DESC] = "声音从哪个设备播放。系统默认跟随 Windows 的默认设备。所选设备被拔出时改用系统默认，"
+                                  "设备重新连接后恢复。立即生效。",
+    [UI_MENU_AUDIO_DEVICE_DEFAULT] = "系统默认",
     [UI_MENU_MOTION] = "体感操作",
     [UI_MENU_MOTION_DESC] = "用手柄的陀螺仪瞄准。",
+    [UI_MENU_GYRO_CALIBRATION] = "陀螺仪偏置校准",
+    [UI_MENU_GYRO_CALIBRATION_DESC] = "减去下面校准行测得的手柄静止偏移。关闭时测量值仍然保留。",
+    [UI_MENU_GYRO_CALIBRATE] = "校准陀螺仪",
+    [UI_MENU_GYRO_CALIBRATE_DESC] = "测量并消除陀螺仪的静止偏移。请放下手柄或保持静止两秒。",
+    [UI_MENU_GYRO_CALIBRATE_WAIT] = "校准中...",
+    [UI_MENU_GYRO_CALIBRATED] = "%s，已校准",
+    [UI_MENU_GYRO_CALIBRATE_FAILED] = "校准失败",
+    [UI_MENU_GYRO_CALIBRATE_MOVED] = "手柄移动了：请保持静止后重试",
     [UI_MENU_RUMBLE_STRENGTH] = "振动强度",
     [UI_MENU_RUMBLE_STRENGTH_DESC] = "手柄振动的强弱。",
     [UI_MENU_RUMBLE_CURVE] = "振动曲线",
@@ -1975,6 +2123,7 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_PAD_RPADDLE1] = "右背键",
     [UI_PAD_LPADDLE2] = "左背键 2",
     [UI_PAD_RPADDLE2] = "右背键 2",
+    [UI_PAD_TOUCHPAD] = "触摸板按下",
     [UI_PAD_CROSS] = "叉键",
     [UI_PAD_CIRCLE] = "圆圈键",
     [UI_PAD_SQUARE] = "方块键",
@@ -2181,6 +2330,9 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_ANISO] = "纹理过滤",
     [UI_MENU_ANISO_DESC] = "表面纹理的各向异性过滤：以小角度看到的地面、道路和墙壁在远处依然清晰，而不会模糊。游戏：使用游戏请求的级别，与 Switch 上相同。",
     [UI_MENU_ANISO_GAME] = "游戏",
+    [UI_MENU_LOD_STEADY] = "负载下保持细节",
+    [UI_MENU_LOD_STEADY_DESC] = "跳过游戏在帧率下降时降低模型和纹理细节的设置，与模拟器模组 Disable LOD Quality "
+                                "Reduction 的作用相同。仅适用于游戏版本 1.2.1 和 1.4.3。低配电脑请勿开启：在那里正是这种降低维持了帧率。",
     [UI_MENU_HDR_GROUP] = "HDR",
     [UI_MENU_HDR] = "HDR 输出",
     [UI_MENU_HDR_DESC] = "在 HDR 显示器上呈现明亮的高光。需要在 Windows 中开启 HDR（“使用 HDR”），或使用带色彩管理的 Wayland 合成器；否则画面保持 "
@@ -2319,10 +2471,24 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_CHEAT_UNSUPPORTED_DESC] = "此金手指不能用于此游戏版本：",
     [UI_MENU_CHEATS_REBUILD] = "立即重新构建游戏",
     [UI_MENU_CHEATS_REBUILD_DESC] = "有些金手指会修改游戏代码，但尚未构建进游戏：它们是新增或修改的，或上次重新构建失败或被取消。将关闭游戏；安装程序会把它们构建进去（几分钟）并重新启动游戏。上次存档之后的进度会丢失。",
-    [UI_MENU_MODS_EXEFS_UNSUPPORTED] = "此模组修改游戏代码（exefs）的方式本移植无法应用，因此整个模组保持关闭。%s",
+    [UI_MENU_MODS_EXEFS_UNSUPPORTED] = "此模组修改游戏代码（exefs）的方式本移植无法应用，因此整个模组保持关闭。打开下方它的“不带代码使用 ...”开关即可使用其余部分。%s",
     [UI_MENU_MODS_EXEFS_OTHER] = "它的代码补丁（exefs）是为其他游戏版本制作的。",
     [UI_MENU_MODS_EXEFS_ON] = "正在使用的代码补丁：%d 个文件。",
     [UI_MENU_MODS_REPLACES_BUILTIN] = "正在使用的代码补丁：%d 个文件。它们取代本移植自带的补丁 %s，此模组开启时该补丁保持关闭。",
+    [UI_MENU_MODS_CODE_SKIPPED] = "它自带的游戏代码（%s）不会加载：模组的其余部分照常使用。如果游戏因此表现异常，请关闭此模组。",
+    [UI_MENU_MODS_PLUGIN_ON] = "它的插件正在运行：游戏代码中有 %d 处挂钩。",
+    [UI_MENU_MODS_PLUGIN_REFUSED] = "它的插件 %s 无法在移植版中运行：%s。",
+    [UI_MENU_MODS_PLUGIN_STAYS_OFF] = "整个模组保持关闭。打开下方它的“不带代码使用 ...”开关即可使用其余部分。",
+    [UI_MENU_MODS_PLUGIN_OFF] = "它的插件本次保持关闭：启动情况与构建时不同（%s）。游戏会在下次启动时重新构建它。",
+    [UI_MENU_MODS_WITHOUT_CODE] = "不带代码使用 %s",
+    [UI_MENU_MODS_WITHOUT_CODE_DESC] = "上方的模组带有移植版无法运行的代码：它自己的游戏代码（subsdk 插件或替换的 main），或移植版无法应用的代码补丁（exefs）。关闭：整个模组保持关闭。开启：跳过这些代码，使用模组的其余部分：其 RomFS 文件、金手指和可用的代码补丁。它的文件可能依赖缺失的代码；如果游戏表现异常，请再次关闭。下次启动时生效。",
+    [UI_MENU_MODS_WITHOUT_CODE_ALL] = "已对所有模组开启：totk.ini 中 mods_without_code = 1。",
+    [UI_MENU_MODS_EXEFS_SKIPPED] = "它有 %u 个代码补丁文件（exefs）无法应用，已跳过：模组的其余部分照常使用。%s",
+    [UI_MENU_MODS_OVERRIDES_FILES] = "它的 %u 个文件取代了列表中更靠下的 %s 的文件。",
+    [UI_MENU_MODS_DATA_OVERRIDDEN] = "它对游戏数据的修改中有 %u 字节改用列表中更靠上的 %s 的修改。",
+    [UI_MENU_MODS_OVERRIDES_DATA] = "它对游戏数据的修改中有 %u 字节取代了列表中更靠下的 %s 的修改。",
+    [UI_MENU_MODS_CODE_OVERRIDDEN] = "它有 %u 处代码补丁位置被列表中更靠上的 %s 覆盖。",
+    [UI_MENU_MODS_OVERRIDES_CODE] = "它覆盖了 %u 处代码补丁位置，这些位置原属于列表中更靠下的 %s。",
 };
 
 #define SWKBD_ONLY(name, ...) static const char *const name[UI_TEXT_COUNT] = {SWKBD(__VA_ARGS__)}

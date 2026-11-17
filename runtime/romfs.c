@@ -467,7 +467,8 @@ static const char *owner_name(const Overlay *o) {
     return o->mod ? mods_at(o->mod - 1)->name : o->prio ? "romfs_mods" : "the port's patches";
 }
 
-// One overlay per path: the highest prio serves it; the others are dropped and counted on their mod.
+// One overlay per path: the highest prio serves it; the others are dropped and counted on their mod, and a file one
+// mod takes from another goes into the conflict table (mods_conflict).
 static void overlay_contest(void) {
     if (!noverlay) return;
     qsort(overlays, noverlay, sizeof *overlays, contest_order);
@@ -478,7 +479,7 @@ static void overlay_contest(void) {
             if (o->mod) {
                 ModInfo *m = mods_at(o->mod - 1);
                 m->overridden++;
-                if (!m->overridden_by[0]) snprintf(m->overridden_by, sizeof m->overridden_by, "%s", owner_name(w));
+                if (w->mod) mods_conflict(mods_at(w->mod - 1)->id, m->id, MOD_PART_FILES, 1);
             } else if (w->mod) {
                 rt_log("RomFS overlay: %s from mod %s replaces the one of %s", o->name, owner_name(w), owner_name(o));
             }
@@ -509,10 +510,10 @@ static void mods_overlay_log(void) {
     for (int k = 0; k < mods_count(); k++) {
         const ModInfo *m = mods_at(k);
         if (!m->enabled || !(m->kind & MOD_ROMFS) || m->problem != MOD_OK) continue;
-        rt_log("mods: %s: %u files served (%u replaced, %u added), %u overridden%s%s, %u for another game version",
-               m->name, m->replaced + m->added, m->replaced, m->added, m->overridden, m->overridden ? " by " : "",
-               m->overridden_by, m->other_version);
+        rt_log("mods: %s: %u files served (%u replaced, %u added), %u overridden, %u for another game version",
+               m->name, m->replaced + m->added, m->replaced, m->added, m->overridden, m->other_version);
     }
+    mods_conflicts_log(MOD_PART_FILES);
 }
 
 static int overlay_order(const void *a, const void *b) {
@@ -1145,7 +1146,8 @@ int romfs_shaped_prompts_ready(const char *folder, unsigned w, unsigned h) { ret
 // The setup writes the shaped folders for the displays connected when it ran (installer/steps.py Shapes). After a
 // monitor change the menu can start the same generator for the shape of the game resolution: the setup's Python and
 // tools/make_romfs_patches.py, which build-cache/rebuild.txt names (installer/steps.py write_rebuild_command: line 1 the
-// Python, pythonw on Windows, so no console opens; line 4 the setup's folder), on the install folder's romfs/. Child
+// Python, pythonw on Windows, so no console opens; line 4 the setup's folder; both relative to the install folder for
+// the build kit, installer/layout.py), on the install folder's romfs/. Child
 // processes the game does not wait for: the generator writes manifest.tsv last, so a folder it has not finished is not
 // taken, and the next start loads the finished one.
 static int prepare_tools(char *python, size_t pcap, char *script, size_t scap, char *dir, size_t dcap) {
@@ -1165,8 +1167,12 @@ static int prepare_tools(char *python, size_t pcap, char *script, size_t scap, c
         lines[k++] = p;
         p = e + 1;
     }
-    int ok = k >= 4 && !strcmp(lines[1], "-c") && snprintf(python, pcap, "%s", lines[0]) < (int)pcap &&
-             snprintf(script, scap, "%s/tools/make_romfs_patches.py", lines[3]) < (int)scap;
+    int ok = k >= 4 && !strcmp(lines[1], "-c");
+    if (ok) {   // the build kit's lines are relative to the install folder
+        const char *at0 = plat_path_absolute(lines[0]) ? "" : dir, *at3 = plat_path_absolute(lines[3]) ? "" : dir;
+        ok = snprintf(python, pcap, "%s%s%s", at0, *at0 ? "/" : "", lines[0]) < (int)pcap &&
+             snprintf(script, scap, "%s%s%s/tools/make_romfs_patches.py", at3, *at3 ? "/" : "", lines[3]) < (int)scap;
+    }
     free(text);
     snprintf(path, sizeof path, "%s/romfs/romfs.bin", dir);
     return ok && plat_file_exists(python) && plat_file_exists(script) && plat_file_exists(path);

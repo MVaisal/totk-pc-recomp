@@ -79,6 +79,14 @@
 # the CPU threads).
 # lib_prebuild = 1
 # lib_prebuild_threads = 4
+# Experimental: 1 keeps a render pass open through the game's own Barrier calls (ORDER_FRAGMENTS | INVALIDATE_TEXTURE) when
+# none of the pass's draws can write a storage buffer or image, making the writes visible to the next draw with a by-region
+# barrier instead of ending the pass. Scenes where the game issues about a thousand such barriers a frame (the water in
+# the Nachoyah Shrine, terrain decals) go from about 1200 passes and 10000 layout changes to about 130 passes and 150;
+# the GPU time there fell from 24.5 to 7.8 ms a frame. The game's barrier orders every pixel, the one inside the pass only
+# the pixel a draw writes: a driver that runs it per screen tile can show flicker or squares at the edges of water, decals
+# or particles (report any). Needs the feedback layout (the default). Read at start. Default: 0.
+# barrier_merge = 0
 # Build known pipelines ahead of time.
 # pipe_prebuild = 1
 # Threads that translate known shaders at start (1 to 64; default: half the CPU threads, at most 16).
@@ -125,7 +133,9 @@
 # fix_zero = 1
 # Optimisations, 0 turns each off: skip bindings that did not change, remember shader lookups, reuse the previous
 # draw's pipeline when its state repeats, remember texture descriptors between draws, update descriptors in bulk,
-# skip push constants that did not change, bind only the vertex buffers a draw reads.
+# skip push constants that did not change, bind only the vertex buffers a draw reads, compare and copy each draw's
+# state inline, and rebuild only the parts of a draw's bindings, shaders and pipeline whose inputs changed since the
+# draw before (check: build everything and log any difference from what would have been kept).
 # bind_skip = 1
 # shader_memo = 1
 # pipe_memo = 1
@@ -133,6 +143,8 @@
 # desc_template = 1
 # push_skip = 1
 # vb_used = 1
+# memx = 1
+# bind_inc = 0
 # Submit GPU work in parts every N draws between passes so the GPU starts earlier (0 to 1000; 0 = off), each part at
 # least split_us microseconds long (0 to 20000).
 # split_draws = 64
@@ -245,6 +257,10 @@
 # it; the grass map's textures grow with it, so its detail per metre stays the game's, and the grass heap grows by about
 # 9 MiB times (percent / 100)^2 - 1. Lower draws less grass. Read at start.
 # grass_range = 100
+# Steady detail under load: 1 skips the game's setup for lowering model and texture detail when the frame rate drops,
+# as the emulator mod "Disable LOD Quality Reduction" does (set steady); 0 (the default) leaves it. Leave it off on weak
+# PCs, where that drop keeps the frame rate up. Game versions 1.2.1 and 1.4.3. Read at start.
+# lod_steady = 0
 # Screen-space contact shadows, strength in percent (0 = off): after the game lights its scene, each pixel traces a
 # short way toward the sun through the depth buffer and darkens where something close blocks it, adding the small
 # shadows at feet, under stones and in grass that the shadow maps miss. Read at start.
@@ -335,10 +351,28 @@
 # Speakers: stereo, 5.1 or auto (5.1 when the Windows speaker setup has six or more channels, stereo otherwise). The
 # game is told the same channel count and mixes for it. Takes effect at the next start.
 # audio_channels = stereo
+# Output device: its name as the Sound tab of the menu lists it (SDL's name, e.g. Speakers (Realtek(R) Audio)), or
+# empty / default for the system default device, which follows the Windows default. A named device that is not
+# connected plays on the system default until it is back. Changes while the game runs take effect at once.
+# audio_device = default
 
 [input]
 # Gamepad motion controls (0 = off) and vibration (0 = off).
 # motion = 1
+# Gyro bias calibration (1 = on): the Controls tab's "Calibrate gyro" row measures the controller's resting drift over
+# two seconds and subtracts it from the gyro readings, which removes the yaw drift; an attempt where the controller
+# moved is rejected and the row says so. Nothing changes until a controller is calibrated. Off, the fusion takes the raw
+# gyro and an attempt in progress is dropped; the four keys below stay in the file, so turning it back on restores the
+# last calibration.
+# gyro_calibration = 1
+# The measured bias in rad/s and the controller it was measured from, written by the game when calibration finishes;
+# they are not meant to be typed. The bias applies only while gyro_bias_pad names the connected controller (its name,
+# plus a hash of its serial number when it reports one), so another controller starts with no bias. One controller's
+# bias is kept: calibrating another one replaces it.
+# gyro_bias_x = 0
+# gyro_bias_y = 0
+# gyro_bias_z = 0
+# gyro_bias_pad = Nintendo Switch Pro Controller #1a2b3c4d
 # rumble = 1
 # Rumble strength in percent (0 to 300; 0 = off) and the exponent on the amplitude (0.2 to 1.5; lower = weak pulses
 # stronger, 1 = linear). rumble_triggers = 1 also drives the impulse triggers of an Xbox pad.
@@ -415,6 +449,7 @@
 # SHAKE take keys only. Invalid entries are logged and skipped. Changes while the game runs take effect at once.
 #   pad names: south east west north l r zl zr start back lstick rstick dpad_left dpad_up dpad_right dpad_down
 #   lpaddle1 rpaddle1 lpaddle2 rpaddle2 (the back buttons of an Xbox Elite, DualSense Edge or Steam Controller)
+#   touchpad (the touchpad click of a DualSense or DualShock 4)
 #   key names: a-z 0-9 f2-f7 f9 f12 num0-num9 space tab enter backspace lshift rshift lctrl rctrl lalt capslock insert
 #   delete home end pageup pagedown up down left right num_add num_sub num_mul num_div num_decimal minus equals
 #   lbracket rbracket semicolon apostrophe comma period slash backslash grave mouse_l mouse_r mouse_m mouse_x1 mouse_x2
@@ -431,13 +466,24 @@
 # to totk.exe.
 # mods_dir =
 # Load order, top first, names separated by |. The in-game menu (Mods) writes it; a mod not listed goes to the bottom.
+# The higher mod wins whatever two mods both change: a file, bytes of the game's data, an instruction of its code.
+# Read at start.
 # mods_order =
 # Mods switched off, names separated by |.
 # mods_disabled =
+# Mods used without their code part, names separated by |: the Mods tab's switch "Use <mod> without its code". Such a
+# mod's code modules (exefs/subsdk*, a replaced exefs/main) and the ExeFS patch files the port cannot apply are left out
+# and the rest of it is used, where otherwise the whole mod stays off. Read at start.
+# mods_no_code =
 # auto: when an enabled mod has cheats that change the game's code and the game was built without them, the game starts
 # the setup's rebuild at start (a few minutes) and starts again after it. off: the game starts with the code it has.
 # A rebuild that failed or was cancelled is not started again for the same cheats. Default: auto.
 # mods_rebuild = auto
+# 1: every mod is used without the code part the port cannot run, as if mods_no_code named them all: its code modules
+# (exefs/subsdk*, a replaced exefs/main) and the ExeFS patch files the port cannot apply are left out, its RomFS files,
+# cheats and the other patch files load. Its files may expect the missing code. 0: only the mods mods_no_code names.
+# Read at start. Default: 0.
+# mods_without_code = 0
 # Extra room in MiB (0 to 4096) for the heap the world's textures stream into, for HD texture packs. Packs made for
 # emulators with 8 GB of DRAM grow it in their own HeapDef table (System/HeapSize/Product.Nin_NX_NVN.HeapDef.byml.zs):
 # the port reads that growth at start and applies it itself (about 3339 MiB for the HDPacks 4K pack), so such a pack
@@ -489,6 +535,11 @@
 # last one it finished. Unset: on AMD GPUs (VK_AMD_buffer_marker). 1: also on NVIDIA GPUs
 # (VK_NV_device_diagnostic_checkpoints), which NVIDIA says costs a little. 0: off.
 # pass_crumbs = 1
+# GPU address map: after a GPU memory fault (device lost) the log names the image or buffer that held the faulting
+# address and whether it was freed before the fault. 1: on, where the driver has VK_EXT_device_address_binding_report.
+# It slows the recording of GPU commands, on AMD's Windows driver more and more over a session, so turn it on only for
+# the run that reproduces the crash. Default: 0.
+# addr_report = 0
 # Render targets up to this size (bytes, 0 to 1073741824) go back to their game memory whenever the game waits for a
 # GPU fence. A larger target goes back too unless the GPU drew it in each of the last 16 frames. A game that reads a
 # larger target drawn every frame without invalidating it sees stale bytes at the default. With trace = gfx the log
