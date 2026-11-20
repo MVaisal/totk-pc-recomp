@@ -129,6 +129,40 @@ bind_X = pad:west, key:space
 bind_Y = pad:north, key:mouse_l
 ```
 
+## Free camera
+
+On game 1.4.3, a chosen gamepad combo or a key steps the free camera through three stages: move, lock, and off again.
+It is off by default: turn on *Free camera* on the Controls tab (`freecam_patch = 1`) and restart. Then pick the
+combo or the key, neither set by default, with `freecam_pad` and `freecam_key` in `totk.ini` or on the Controls tab
+(for example ZL+ZR+L3, LT+RT+L3 on an Xbox pad, and F2; `none` turns one off). An input script can press the combo as a
+gamepad would; the keys bound to its buttons do not. While the free camera moves, the world goes on but the game gets
+no input, so Link stands where he was.
+
+Locked, the view stays where the flight left it and the game gets its input back. Link walks where the left stick
+points on screen, as the game steers him by the camera it draws. The right stick and the mouse turn the game camera,
+which still follows Link unseen.
+
+| Gamepad | Keyboard and mouse (default bindings) | Free camera |
+|---|---|---|
+| Left stick | W A S D | forward and back along the view, and sideways |
+| ZR / ZL (RT / LT) | X / Z | straight up / down; a trigger by how far it is pressed |
+| Right stick | mouse, arrow keys | turn (yaw and pitch; pitch stops 5 degrees short of straight up or down) |
+| R / L (RB / LB) | R / Q | each press doubles / halves the speed, 0.25 to 512 m/s |
+
+The keys are the ones bound to the left and right stick and to ZR, ZL, R and L (`bind_` lines), so remapped keys follow.
+The mouse turns the free camera at the game camera's rate (0.08 degrees a count at `mouse_sens = 1`) and the game's
+mouse camera gets none of it meanwhile. Each switch starts at the game camera's position and view at 8 m/s; the speed
+follows the clock, so it is the same at any frame rate and game speed. The horizon stays level.
+
+How it works (`runtime/freecam.c`): the camera component update (main+0x628460) copies each component's eye, target
+and up into its sead camera. The site `freecam` (`recomp/patches-v143.txt`, main+0x6286d4) runs before that copy and
+writes the component's one-shot eye and target overrides (+0x180, +0x198), which the update takes in place of the pose
+and then clears, so the game camera's own state is never changed and resumes the frame the free camera ends. Locked,
+the site keeps writing the overrides without moving them. The up
+vector is levelled through the component's up offset (+0x200), which is kept and put back. Of the three components a
+frame updates, the free camera drives the two that share the player camera's eye and leaves the one at the default pose
+(eye 0, 0, 10). After a load replaced the components it picks the new ones and keeps its position.
+
 ## Mouse camera
 
 `mouse_mode = direct` (the default) turns the camera by the raw mouse motion on games 1.4.3 and 1.2.1, through hooks in the game's camera code (`runtime/mouse_direct.c`, the `mouse_direct` sites of `recomp/patches-v143.txt` and `recomp/patches-v121.txt`). None of them changes a step of the gamepad alone. The free-orbit camera receives raw-count
@@ -154,6 +188,12 @@ degrees a count as the camera does elsewhere. The follow range is read from the 
 once, the mouse is stick input there). The stick loads that only test for input keep the mouse in the stick. A step with mouse motion that no
 direct hook took is logged (`mouse: step N with mouse motion took the stick path`, the first 30, then one in 600, with
 the player's state), so the cameras still on stick input show in `logs/totk.log`.
+Some cameras run none of the direct hooks and read their turn from input the hooks never see: Autobuild's placement
+camera (games 1.4.3 and 1.2.1) turns by the right stick but, in direct mode, not by the mouse (issue #1300). After two
+camera steps in a row that ran no direct hook (none of the free orbit, the load sites above or Ultrahand's held-object
+input), the mouse acts as the right stick there, as with `mouse_mode = stick`, until a step runs a direct hook again
+(`mouse: the camera runs no direct hook; the mouse acts as the right stick` and `... runs a direct hook again` in the
+log, the first 6 changes; `camera_unhooked` in `runtime/mouse_direct.c`).
 Lock-on keeps pointing the camera at the target; the stick, and so the mouse, adds an offset around that direction,
 which the game limits and lets return: the mouse's degrees are the step's turn the game adds to the offset and judges
 the return by.
@@ -291,7 +331,7 @@ own (`gyro_bias_pad` ends in "(under Steam)").
 ```
 <frame> <button> [hold_frames]            # A B X Y L R ZL ZR PLUS MINUS LEFT UP RIGHT DOWN LCLICK RCLICK; hold defaults to 4
 <frame> LSTICK|RSTICK <x> <y> [hold_frames]   # -32767..32767, up is +y
-<frame> MOUSE <dx> <dy>                  # direct-mode raw counts, once; down is +dy
+<frame> MOUSE <dx> <dy>                  # raw mouse counts, once; down is +dy
 @<ms> <button> [hold_ms]                  # timed on the world clock
 @<ms> LSTICK|RSTICK <x> <y> [hold_ms]
 @<ms> MOUSE <dx> <dy>
@@ -307,7 +347,10 @@ own (`gyro_bias_pad` ends in "(under Steam)").
 
 In direct mouse mode the recording also writes one `MOUSE` event per consumed raw displacement. These are one-shot
 displacements rather than held stick segments. They replay without cursor capture, including with `input = none`;
-the game must be accepting camera input when the event reaches its camera update.
+the game must be accepting camera input when the event reaches its camera update. Where the mouse acts as the right
+stick (`mouse_mode = stick`, a camera with no direct hook, the game not accepting camera input), a script's `MOUSE`
+lines move the right stick as the mouse would, also without cursor capture or with `input = none`, for 100 ms after
+each line (`mouse_camera` in `runtime/input.c`); spread a turn over lines a frame apart, as a real mouse moves.
 
 `TOTK_TEST_PAD=<lx>,<ly>,<rx>,<ry>` attaches an SDL virtual gamepad at start whose sticks rest at these raw SDL axis values (-32768 to 32767, down is +y), so a drifting or held stick can be tested without a controller: the values go through the gamepad mapping and `TOTK_STICK_DEADZONE` like a real pad's, and `TOTK_INPUT_RECORD` shows what reached the game.
 

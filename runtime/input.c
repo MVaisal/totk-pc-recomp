@@ -148,6 +148,10 @@ static void script_load(void) {
     rt_log("input: script %s, %d events", path, script_n);
 }
 
+// Under lock: the Switch buttons the input script pressed in the last poll, apart from the keys' and the gamepad's, so
+// a gamepad combo can count a scripted press as the gamepad's without counting the keys bound to the same buttons
+static uint64_t script_seen;
+
 static void script_apply(uint64_t *b, int32_t sl[2], int32_t sr[2]) {
     if (!script_state) script_load();
     if (!script_n) return;
@@ -269,7 +273,8 @@ static void rec_apply(uint64_t b, const int32_t sl[2], const int32_t sr[2]) {
 
 void input_direct_mouse_sample(int enabled, int32_t *dx, int32_t *dy) {
     plat_mutex_lock(&lock);
-    enabled = enabled && !g_block && !g_menu;
+    // the moving free camera takes the mouse (freecam_gate)
+    enabled = enabled && !g_block && !g_menu && freecam_state() != FREECAM_MOVE;
     *dx = script_mouse[0]; *dy = script_mouse[1];
     script_mouse[0] = script_mouse[1] = 0;
     if (!enabled) { *dx = *dy = 0; }
@@ -364,6 +369,14 @@ static void walk_get(void) {
 static int mouse_selector;
 int input_direct_mouse_selector_active(void) { return __atomic_load_n(&mouse_selector, __ATOMIC_RELAXED) != 0; }
 
+// A script's MOUSE line within the last 100 ms (under `lock`): mouse_camera then makes a stick of it
+static uint64_t script_mouse_at;
+static int input_script_mouse_recent(void) {
+    uint64_t now = plat_now_ns();
+    if (script_mouse[0] || script_mouse[1]) script_mouse_at = now;
+    return script_mouse_at && now - script_mouse_at < 100000000ull;
+}
+
 // Selector 1 is a radial wheel, 2..4 are distinct horizontal quick lists; only a wheel retains a virtual cursor.
 // Under `lock`.
 static void mouse_camera(int32_t out[2], int selector) {
@@ -396,7 +409,10 @@ static void mouse_camera(int32_t out[2], int selector) {
         frame = ~0ull;
         return;   // the camera update takes the raw counts itself, once, outside the HID stick path
     }
-    if (!ikb_captured()) {
+    // A script's MOUSE lines move the stick as the mouse does, captured or not (in direct mode the camera hook takes
+    // them, input_direct_mouse_sample): for 100 ms after one the stick is the mouse's, as while captured
+    int scripted = input_script_mouse_recent();
+    if (!ikb_captured() && !scripted) {
         ikb_mouse_take(&dx, &dy);
         held[0] = held[1] = 0;
         frame = ~0ull;
@@ -406,6 +422,9 @@ static void mouse_camera(int32_t out[2], int selector) {
         if (fr != frame) {
             double dt = age < 0.004 ? 0.004 : age > 0.1 ? 0.1 : age;
             ikb_mouse_take(&dx, &dy);
+            if (!ikb_captured()) dx = dy = 0;
+            dx += script_mouse[0], dy += script_mouse[1];
+            script_mouse[0] = script_mouse[1] = 0;
             input_mouse_stick(dx, dy, dt, mouse_sens_get(), held);
             frame = fr;
             t0 = now;
@@ -601,10 +620,16 @@ static void binds_refresh(void) {
 // (-32768..32767, down is +y), attached before the first scan so it is the gamepad the game reads: drift and full
 // deflection go through the same mapping and dead zone as a real pad.
 // TOTK_TEST_PAD_RUMBLE_MS=<n>: the test gamepad has rumble and each write to it takes n ms (a slow Bluetooth HID write),
-// to show that input_rumble does not wait for it.
+// to show that input_rumble does not wait for it. Read with cfg_get, as TOTK_TEST_PAD is: a test variable has no row in
+// the settings table, and cfg_int stops the game on a name without one.
+static int test_pad_rumble_ms(void) {
+    const char *e = cfg_get("TOTK_TEST_PAD_RUMBLE_MS");
+    return e ? atoi(e) : 0;
+}
+
 static bool test_pad_rumble(void *userdata, Uint16 low, Uint16 high) {
     (void)userdata; (void)low; (void)high;
-    plat_wait_ns((uint64_t)cfg_int("TOTK_TEST_PAD_RUMBLE_MS") * 1000000ull);
+    plat_wait_ns((uint64_t)test_pad_rumble_ms() * 1000000ull);
     return true;
 }
 
@@ -623,7 +648,7 @@ static void test_pad_attach(void) {
     d.naxes = SDL_GAMEPAD_AXIS_COUNT;
     d.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
     d.name = "TotK test gamepad";
-    if (cfg_int("TOTK_TEST_PAD_RUMBLE_MS") > 0) d.Rumble = test_pad_rumble;
+    if (test_pad_rumble_ms() > 0) d.Rumble = test_pad_rumble;
     SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
     joy = id ? SDL_OpenJoystick(id) : NULL;
     if (!joy) {
@@ -783,13 +808,147 @@ static int pad_physical(uint8_t pd[PAD_COUNT]) {
 
 // Under lock, state 1: the open gamepad's buttons (Switch bits after TOTK_PAD_LAYOUT and the TOTK_BIND_* lines) and
 // sticks; 0 without a connected gamepad.
+// Under lock: the last pad_read's inputs by position, [PAD_GUIDE] the Home / Guide button (no Switch button), and its
+// left and right trigger axes, 0..32767: what the gamepad combos and the free camera read
+#define PAD_GUIDE PAD_COUNT
+static uint8_t pad_seen[PAD_COUNT + 1];
+static int16_t trigger_seen[2];
+
 static int pad_read(uint64_t *b, int32_t sl[2], int32_t sr[2]) {
     uint8_t pd[PAD_COUNT] = {0};
-    if (!pad_physical(pd)) return 0;
+    if (!pad_physical(pd)) {
+        memset(pad_seen, 0, sizeof pad_seen);
+        memset(trigger_seen, 0, sizeof trigger_seen);
+        return 0;
+    }
+    memcpy(pad_seen, pd, sizeof pd);
+    pad_seen[PAD_GUIDE] = SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_GUIDE);
+    trigger_seen[0] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
+    trigger_seen[1] = SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
     *b |= input_map_pad_buttons(pd, pad_layout_get());
     stick(SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, stick_dead_get(0), sl);
     stick(SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY, stick_dead_get(1), sr);
     return 1;
+}
+
+uint32_t input_pad_combo(const char *env, const char *s) {
+    uint32_t mask = 0;
+    char name[32];
+    size_t n = 0;
+    for (const char *c = s;; c++) {
+        if (*c && *c != '+' && *c != ' ') {
+            if (n < sizeof name - 1) name[n++] = *c;
+            continue;
+        }
+        if (n) {
+            name[n] = 0;
+            int p = !strcasecmp(name, "guide") || !strcasecmp(name, "home") ? PAD_GUIDE : input_pad_id(name);
+            if (p == PAD_NONE) {
+                rt_log("input: %s=%s: %s is not a gamepad button (south east west north lstick rstick "
+                       "l r zl zr start back guide dpad_*, paddles)", env, s, name);
+                return 0;
+            }
+            mask |= 1u << p;
+            n = 0;
+        }
+        if (!*c) break;
+    }
+    return mask;
+}
+
+// TOTK_FREECAM_PAD (live): the combo that switches the free camera (freecam.c), for example zl+zr+lstick (LT+RT+L3);
+// none, the default (the settings table), for no combo. Under lock.
+static uint32_t freecam_pad_mask(void) {
+    static unsigned seen;
+    static int read;
+    static uint32_t mask;
+    unsigned v = cfg_version();
+    if (read && v == seen) return mask;
+    read = 1, seen = v;
+    const char *s = cfg_value("TOTK_FREECAM_PAD");
+    mask = *s && strcasecmp(s, "none") ? input_pad_combo("TOTK_FREECAM_PAD", s) : 0;
+    return mask;
+}
+
+// TOTK_FREECAM_KEY (live): the key that switches the free camera; none, the default (the settings table), for no key.
+// Under lock.
+static int freecam_key(void) {
+    static unsigned seen;
+    static int read, key;
+    unsigned v = cfg_version();
+    if (read && v == seen) return key;
+    read = 1, seen = v;
+    const char *s = cfg_value("TOTK_FREECAM_KEY");
+    key = !*s || !strcasecmp(s, "none") ? KEY_NONE : input_key_id(s);
+    if (key == KEY_NONE && *s && strcasecmp(s, "none"))
+        rt_log("input: TOTK_FREECAM_KEY=%s is not a key name (docs/controls.md)", s);
+    return key;
+}
+
+static float trigger_unit(int16_t v) {   // 0..1 past a 5 % dead zone
+    float t = v / 32767.0f;
+    return t < 0.05f ? 0 : (t - 0.05f) / 0.95f;
+}
+
+// The free camera combo, latched like Minus+Plus (input_map.c, chord): once every button of it is down (on the gamepad,
+// or pressed by an input script) the free camera steps once (off, move, lock), and the buttons stay hidden from the
+// game until all are released; the free camera key steps it on its press. While the free camera moves it gets the
+// input and the game gets nothing, so Link stands still: the sticks (the keys' sticks merged into sl and sr), the
+// trigger axes or else ZL and ZR as buttons, a press of L or R as a speed click, and the mouse's motion, which
+// input_direct_mouse_sample then keeps from the game's camera. ZL, ZR, L and R are the merged Switch buttons, so the
+// keys bound to them count. Locked, the game gets the input as it is (freecam.c: the game steers Link by the camera it
+// draws). Off for other updates and with the freecam patch set off. Under lock.
+static void freecam_gate(uint64_t *b, int32_t sl[2], int32_t sr[2]) {
+    static int held, key_held, available = -1, shoulder[2];
+    if (available < 0) available = freecam_available();
+    uint32_t mask = available ? freecam_pad_mask() : 0, raw = 0;
+    int layout = pad_layout_get();
+    for (int p = PAD_SOUTH; p <= PAD_GUIDE; p++) {
+        if (!(mask >> p & 1)) continue;
+        // A position counts as down on the gamepad or when the input script presses the Switch buttons it stands for,
+        // as a gamepad would; the keys bound to those buttons do not (the free camera key is theirs). Home has no
+        // Switch button: gamepad only.
+        uint8_t one[PAD_COUNT] = {0};
+        if (p < PAD_COUNT) one[p] = 1;
+        if (pad_seen[p] || (p < PAD_COUNT && script_seen & input_map_pad_buttons(one, layout))) raw |= 1u << p;
+    }
+    if (!mask) held = 0;
+    else if (held) held = raw != 0;
+    else if (raw == mask) {
+        held = 1;
+        freecam_cycle();
+    }
+    int key = available ? freecam_key() : KEY_NONE;
+    int key_down = key != KEY_NONE && ikb_foreground() && ikb_down(key);
+    if (key_down && !key_held) freecam_cycle();
+    key_held = key_down;
+    if (available && freecam_state() == FREECAM_MOVE) {
+        float lt = trigger_unit(trigger_seen[0]), rt = trigger_unit(trigger_seen[1]);
+        if (*b >> B_ZL & 1) lt = 1;
+        if (*b >> B_ZR & 1) rt = 1;
+        FreecamPad fp = {sl[0] / (float)STICK_MAX, sl[1] / (float)STICK_MAX, sr[0] / (float)STICK_MAX,
+                         sr[1] / (float)STICK_MAX, lt, rt};
+        freecam_pad(&fp);
+        for (int k = 0; k < 2; k++) {
+            int down = (int)(*b >> (k ? B_R : B_L) & 1);
+            if (down && !shoulder[k]) freecam_speed_click(k);
+            shoulder[k] = down;
+        }
+        if (ikb_captured() && ikb_foreground() && input_cursor_allowed()) {
+            int32_t x, y;
+            ikb_mouse_take(&x, &y);   // what the stick emulation left (none in that mode: it is in sr already)
+            float deg = 0.08f * mouse_sens_get();   // the game camera's rate a count (mouse_direct.c DEG_PER_COUNT)
+            if (x || y) freecam_mouse(x * deg, y * deg);
+        }
+        *b = 0;
+        sl[0] = sl[1] = sr[0] = sr[1] = 0;
+        return;
+    }
+    shoulder[0] = shoulder[1] = 1;   // a shoulder held when the free camera starts is no click
+    if (!held) return;
+    uint8_t sub[PAD_COUNT] = {0};
+    for (int p = PAD_SOUTH; p < PAD_COUNT; p++) sub[p] = mask >> p & 1;
+    *b &= ~input_map_pad_buttons(sub, pad_layout_get());
 }
 
 int input_pad_stick_percent(double pct[2]) {
@@ -901,7 +1060,16 @@ static void poll_merged(uint64_t *buttons, int32_t *lx, int32_t *ly, int32_t *rx
         if (pad_used) __atomic_store_n(&g_kbm_last, 0, __ATOMIC_RELAXED);
         else if (kbm_used) __atomic_store_n(&g_kbm_last, 1, __ATOMIC_RELAXED);
     }
-    script_apply(&b, sl, sr);
+    // Without the keyboard and mouse poll above (TOTK_INPUT=none in scripted runs, or the window in the background), a
+    // script's MOUSE lines still move the right stick wherever the mouse would (mouse_camera)
+    if (!(state > 0 && ikb_foreground()) && input_script_mouse_recent() && !input_direct_mouse_active()) {
+        int32_t k[2];
+        mouse_camera(k, 0);
+        pick(&sr[0], &sr[1], k[0], k[1]);
+    }
+    script_seen = 0;
+    script_apply(&script_seen, sl, sr);
+    b |= script_seen;
     wheel_route(&b, sl, sr);
     gameplay_tweaks_apply(__atomic_load_n(&gfx_counters.frames, __ATOMIC_RELAXED), input_gameplay_active(), &b, &sl[0], &sl[1], &sr[0], &sr[1]);
     rec_apply(b, sl, sr);
@@ -912,6 +1080,7 @@ static void poll_merged(uint64_t *buttons, int32_t *lx, int32_t *ly, int32_t *rx
     static int overlay_held;   // L3+R3 step the performance overlay (F10)
     int overlay = input_overlay_gate(&overlay_held, &b);
     sl[0] = st[0], sl[1] = st[1], sr[0] = st[2], sr[1] = st[3];
+    freecam_gate(&b, sl, sr);   // TOTK_FREECAM_PAD steps the free camera, which takes the pad while moving (freecam.c)
     plat_mutex_unlock(&lock);
     if (toggle) menu_toggle();
     if (overlay) menu_perf_cycle();
