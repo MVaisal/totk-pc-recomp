@@ -214,6 +214,14 @@ jobs:
           @'
           import zipfile, pathlib, re, os
 
+          # Patch missing <mutex> header in FidelityFX SDK for Clang libc++
+          ffx_compat = pathlib.Path("runtime/third_party/FidelityFX/ffx_compat.h")
+          if ffx_compat.exists():
+              src = ffx_compat.read_text(encoding="utf-8")
+              if "<mutex>" not in src:
+                  ffx_compat.write_text(src + "\n#ifdef __cplusplus\n#include <mutex>\n#endif\n", encoding="utf-8")
+                  print("Patched <mutex> into ffx_compat.h")
+
           full_version = os.environ.get("FULL_VERSION", "0.4.1-dev")
 
           zfile = pathlib.Path("official_release.zip")
