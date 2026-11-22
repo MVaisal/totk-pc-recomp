@@ -3,12 +3,66 @@ run-name: "TotK Setup Dev #${{ github.run_number }} (${{ github.ref_name }})"
 
 on:
   workflow_dispatch:
+  schedule:
+    # Jalan setiap hari pukul 07:00 WIB (00:00 UTC)
+    - cron: '0 0 * * *'
 
 permissions:
   contents: write
 
 jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.sync.outputs.should_build }}
+    steps:
+      - name: Checkout fork dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Sync fork with upstream & check for new commits
+        id: sync
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/valentderah/totk-pc-recomp.git
+          git fetch upstream dev
+
+          UPSTREAM_SHA=$(git rev-parse upstream/dev)
+          LOCAL_BASE=$(git merge-base HEAD upstream/dev)
+
+          echo "Upstream dev : $UPSTREAM_SHA"
+          echo "Local base   : $LOCAL_BASE"
+
+          if [ "$UPSTREAM_SHA" = "$LOCAL_BASE" ]; then
+            echo "Tidak ada commit baru di upstream."
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "Manual trigger terdeteksi: tetap melanjutkan build."
+              echo "should_build=true" >> $GITHUB_OUTPUT
+            else
+              echo "Jadwal harian dilewati (skip build)."
+              echo "should_build=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Commit baru ditemukan! Menyinkronkan cabang dev..."
+            cp .github/workflows/build.yml /tmp/build.yml.bak
+            git reset --hard upstream/dev
+            mkdir -p .github/workflows
+            cp /tmp/build.yml.bak .github/workflows/build.yml
+
+            git add .github/workflows/build.yml
+            git commit -m "chore: preserve custom build workflow after upstream sync" || true
+            git push origin dev --force-with-lease
+
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+
   build-windows:
+    needs: sync-upstream
+    if: needs.sync-upstream.outputs.should_build == 'true'
     runs-on: windows-latest
 
     steps:
@@ -78,7 +132,8 @@ jobs:
           $shaDash = if ($upstreamCommit) { "-$upstreamCommit" } else { "" }
 
           $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
-          $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-Windows"
+          $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows"
+          $releaseTag   = "v$fullVersion"
 
           # Timpa file VERSION di workspace agar dibaca installer
           if ($verFile) { Set-Content -Path $verFile -Value $fullVersion -NoNewline }
@@ -88,15 +143,15 @@ jobs:
           echo "upstream_commit=$upstreamCommit" >> $env:GITHUB_OUTPUT
           echo "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
           echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
+          echo "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
 
-          Write-Host "Build Version: $fullVersion | Artifact: $artifactName"
+          Write-Host "Build Version: $fullVersion | Tag: $releaseTag | File: $artifactName.zip"
 
-          # Tulis ringkasan ke halaman Summary Actions
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Build Version: ``$fullVersion``"
           if ($upstreamCommit) {
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Commit (``$upstreamRepo@dev``):** ``$upstreamCommit``"
           }
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Artifact:** ``$artifactName``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Release Asset:** ``$artifactName.zip``"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -296,9 +351,27 @@ jobs:
         run: |
           python tools/make_release.py --out TotKRecomp-Dev
 
+      - name: Package Release ZIP
+        run: |
+          $zipName = "${{ steps.build_meta.outputs.artifact_name }}.zip"
+          Compress-Archive -Path "TotKRecomp-Dev/*" -DestinationPath $zipName -Force
+          Write-Host "Packaged release archive: $zipName"
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build_meta.outputs.release_tag }}
+          name: "TotK Recomp Dev (${{ steps.build_meta.outputs.full_version }})"
+          target_commitish: dev
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            ${{ steps.build_meta.outputs.artifact_name }}.zip
+
       - name: Upload Release Package Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build_meta.outputs.artifact_name }}
           path: TotKRecomp-Dev/
           include-hidden-files: true
+          retention-days: 7
