@@ -1,8 +1,18 @@
-name: Build TotK Setup Dev
+name: Build TotK Setup Dev (1.4.3 & 1.2.1)
 run-name: "TotK Setup Dev #${{ github.run_number }} (${{ github.ref_name }})"
 
 on:
   workflow_dispatch:
+    inputs:
+      target_version:
+        description: "Versi game yang akan di-build"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - "1.4.3"
+          - "1.2.1"
   schedule:
     # Jalan setiap hari pukul 07:00 WIB (00:00 UTC)
     - cron: '0 0 * * *'
@@ -125,7 +135,7 @@ jobs:
             $maxV = ($vList | Sort-Object -Descending | Select-Object -First 1)
             $nextBase = "$($maxV.Major).$($maxV.Minor).$($maxV.Build + 1)"
           } else {
-            $nextBase = "0.4.1"
+            $nextBase = "0.5.1"
           }
 
           $shaDot  = if ($upstreamCommit) { ".$upstreamCommit" } else { "" }
@@ -214,32 +224,58 @@ jobs:
           Write-Host "hactool.exe built successfully!"
           $global:LASTEXITCODE = 0
 
-      - name: Fetch exefs.zip from Draft Release & Run Native Lifter
+      - name: Fetch exefs & Run Native Lifter (v143 & v121)
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_VER: ${{ github.event.inputs.target_version || 'all' }}
         run: |
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $dlHeaders = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/octet-stream" }
           $myReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Headers $headers
-          $exefsAsset = $myReleases | ForEach-Object { $_.assets } | Where-Object { $_.name -eq "exefs.zip" } | Select-Object -First 1
+          $allAssets = $myReleases | ForEach-Object { $_.assets }
 
-          if (-not $exefsAsset) {
-            Write-Error "File exefs.zip tidak ditemukan di Releases (Draft) repositori ${{ github.repository }}!"
+          $builtAny = $false
+
+          # 1. Cek dan Lift v1.4.3 (mencari exefs.zip atau exefs-143.zip)
+          if ($env:TARGET_VER -eq "all" -or $env:TARGET_VER -eq "1.4.3") {
+            $asset143 = $allAssets | Where-Object { $_.name -in @("exefs.zip", "exefs-143.zip", "exefs_143.zip") } | Select-Object -First 1
+            if ($asset143) {
+              Write-Host "Downloading $($asset143.name) for v1.4.3..."
+              Invoke-WebRequest -Uri $asset143.url -Headers $dlHeaders -OutFile "exefs_143.zip"
+              New-Item -ItemType Directory -Force -Path "build/extracted/v143/exefs"
+              Expand-Archive -Path "exefs_143.zip" -DestinationPath "build/extracted/v143/exefs" -Force
+              if (Test-Path "build/extracted/v143/exefs/exefs") {
+                Move-Item -Path "build/extracted/v143/exefs/exefs/*" -Destination "build/extracted/v143/exefs/" -Force
+                Remove-Item -Path "build/extracted/v143/exefs/exefs" -Recurse -Force
+              }
+              Write-Host "Running native lifter recomp/gen.py for v143..."
+              python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
+              $builtAny = $true
+            }
+          }
+
+          # 2. Cek dan Lift v1.2.1 (mencari exefs-121.zip atau exefs_121.zip)
+          if ($env:TARGET_VER -eq "all" -or $env:TARGET_VER -eq "1.2.1") {
+            $asset121 = $allAssets | Where-Object { $_.name -in @("exefs-121.zip", "exefs_121.zip") } | Select-Object -First 1
+            if ($asset121) {
+              Write-Host "Downloading $($asset121.name) for v1.2.1..."
+              Invoke-WebRequest -Uri $asset121.url -Headers $dlHeaders -OutFile "exefs_121.zip"
+              New-Item -ItemType Directory -Force -Path "build/extracted/v121/exefs"
+              Expand-Archive -Path "exefs_121.zip" -DestinationPath "build/extracted/v121/exefs" -Force
+              if (Test-Path "build/extracted/v121/exefs/exefs") {
+                Move-Item -Path "build/extracted/v121/exefs/exefs/*" -Destination "build/extracted/v121/exefs/" -Force
+                Remove-Item -Path "build/extracted/v121/exefs/exefs" -Recurse -Force
+              }
+              Write-Host "Running native lifter recomp/gen.py for v121..."
+              python recomp/gen.py --exefs build/extracted/v121/exefs --out generated/v121
+              $builtAny = $true
+            }
+          }
+
+          if (-not $builtAny) {
+            Write-Error "Tidak ditemukan aset exefs.zip / exefs-143.zip / exefs-121.zip di Draft Release!"
             exit 1
           }
-
-          Write-Host "Downloading exefs.zip from Draft Release..."
-          Invoke-WebRequest -Uri $exefsAsset.url -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/octet-stream" } -OutFile "exefs.zip"
-
-          New-Item -ItemType Directory -Force -Path "build/extracted/v143/exefs"
-          Expand-Archive -Path "exefs.zip" -DestinationPath "build/extracted/v143/exefs" -Force
-
-          if (Test-Path "build/extracted/v143/exefs/exefs") {
-            Move-Item -Path "build/extracted/v143/exefs/exefs/*" -Destination "build/extracted/v143/exefs/" -Force
-            Remove-Item -Path "build/extracted/v143/exefs/exefs" -Recurse -Force
-          }
-
-          Write-Host "Running native lifter recomp/gen.py on exefs..."
-          python recomp/gen.py --exefs build/extracted/v143/exefs --out generated/v143
 
       - name: Fetch Upstream Precomputed PGO & Configure make_release.py
         env:
@@ -277,7 +313,7 @@ jobs:
                   ffx_compat.write_text(src + "\n#ifdef __cplusplus\n#include <mutex>\n#endif\n", encoding="utf-8")
                   print("Patched <mutex> into ffx_compat.h")
 
-          full_version = os.environ.get("FULL_VERSION", "0.4.1-dev")
+          full_version = os.environ.get("FULL_VERSION", "0.5.1-dev")
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
@@ -289,8 +325,10 @@ jobs:
                           fname = pathlib.Path(member).name
                           data_bytes = zf.read(member)
                           (pathlib.Path("upstream_data") / fname).write_bytes(data_bytes)
+                          # Ekstrak semua file pgo-*.profdata (pgo-v143.profdata, pgo-v121.profdata, dll.)
                           if fname.startswith("pgo-"):
                               (pathlib.Path("build/pgo") / fname).write_bytes(data_bytes)
+                              print(f"Extracted PGO profile: {fname}")
                       elif "/licenses/" in member:
                           fname = pathlib.Path(member).name
                           (pathlib.Path("upstream_licenses") / fname).write_bytes(zf.read(member))
