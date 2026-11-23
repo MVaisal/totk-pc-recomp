@@ -13,6 +13,11 @@ on:
           - all
           - "1.4.3"
           - "1.2.1"
+      skip_if_no_change:
+        description: "Lewati build jika tidak ada commit baru di upstream"
+        required: false
+        default: false
+        type: boolean
   schedule:
     # Jalan setiap hari pukul 07:00 WIB (00:00 UTC)
     - cron: '0 0 * * *'
@@ -49,24 +54,30 @@ jobs:
 
           if [ "$UPSTREAM_SHA" = "$LOCAL_BASE" ]; then
             echo "Tidak ada commit baru di upstream."
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              echo "Manual trigger terdeteksi: tetap melanjutkan build."
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.skip_if_no_change }}" != "true" ]; then
+              echo "Manual trigger paksa terdeteksi: tetap melanjutkan build."
               echo "should_build=true" >> $GITHUB_OUTPUT
             else
-              echo "Jadwal harian dilewati (skip build)."
+              echo "Tidak ada update baru: skip build."
               echo "should_build=false" >> $GITHUB_OUTPUT
             fi
           else
             echo "Commit baru ditemukan! Menyinkronkan cabang dev..."
             cp .github/workflows/build.yml /tmp/build.yml.bak
-            git reset --hard upstream/dev
+
+            if ! git merge upstream/dev -X theirs --no-edit; then
+              git merge --abort || true
+              git merge upstream/dev --allow-unrelated-histories -X theirs --no-edit
+            fi
+
             mkdir -p .github/workflows
             cp /tmp/build.yml.bak .github/workflows/build.yml
+            if ! git diff --quiet .github/workflows/build.yml; then
+              git add .github/workflows/build.yml
+              git commit --amend --no-edit
+            fi
 
-            git add .github/workflows/build.yml
-            git commit -m "chore: preserve custom build workflow after upstream sync" || true
-            git push origin dev --force-with-lease
-
+            git push origin dev
             echo "should_build=true" >> $GITHUB_OUTPUT
           fi
 
