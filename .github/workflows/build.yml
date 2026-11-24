@@ -18,9 +18,6 @@ on:
         required: false
         default: false
         type: boolean
-  schedule:
-    # Jalan setiap hari pukul 07:00 WIB (00:00 UTC)
-    - cron: '0 0 * * *'
 
 permissions:
   contents: write
