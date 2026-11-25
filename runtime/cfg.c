@@ -41,7 +41,7 @@ static const char *const known[] = {
     "BIND_INC", "BIND_SKIP", "BIND_STATS", "BIND_UP", "BIND_X", "BIND_Y",
     "BIND_ZL", "BIND_ZR", "BARRIER_MERGE", "BLOCK_VIEWS_3D", "CLIMB_FIX", "CLOTH_REALTIME", "COLOR_BRIGHTNESS", "COLOR_CONTRAST", "COLOR_GAMMA",
     "COLOR_PRESET", "COLOR_SATURATION", "CONTACT_DEBUG", "CONTACT_SHADOWS", "CORE_DIAG", "CRIT", "CRIT_OUT",
-    "DESC_TEMPLATE", "DESWIZZLE", "DEVICE_PROFILE", "DIALOGUE_CLICK", "DISCORD_APP_ID", "DISCORD_IMAGE", "DISCORD_RPC", "DLAA", "DLAA_CAM_JITTER", "DLAA_EFFECTS_AFTER", "DLAA_JITTER", "DLAA_MV", "DLAA_MASKDEBUG", "DLAA_MVDEBUG", "DLAA_OBJMV", "DLAA_SURVEY", "DLAA_TIMES", "DLSS", "DLSS_CHAR_MASK", "DLSS_FIXED_EXPOSURE", "DLSS_PRESET", "DLSS_REACTIVE", "DUMP", "DUMP_BUF", "DUMP_DIR",
+    "DEMOTE", "DESC_TEMPLATE", "DESWIZZLE", "DEVICE_PROFILE", "DIALOGUE_CLICK", "DISCORD_APP_ID", "DISCORD_IMAGE", "DISCORD_RPC", "DLAA", "DLAA_CAM_JITTER", "DLAA_EFFECTS_AFTER", "DLAA_JITTER", "DLAA_MV", "DLAA_MASKDEBUG", "DLAA_MVDEBUG", "DLAA_OBJMV", "DLAA_SURVEY", "DLAA_TIMES", "DLSS", "DLSS_CHAR_MASK", "DLSS_FIXED_EXPOSURE", "DLSS_PRESET", "DLSS_REACTIVE", "DUMP", "DUMP_BUF", "DUMP_DIR",
     "DUMP_LOG", "DYNAMIC_RES", "DYN_DELTA", "EXEFS", "FEEDBACK", "FG_DEBUG", "FG_OBJECTS", "FG_SHOT", "FG_SHOT_DIR", "FG_TEST", "FG_TIMES", "FIXED_RES_PATCH", "FIX_C0", "FIX_ZERO", "FLIGHT", "FLIGHT_AT", "FLIGHT_DIR", "FLIGHT_FRAMES",
     "FLIGHT_SPIKE_MS", "FLIGHT_THUMBS", "FLUSH_SPAN", "FOV", "FOV_PATCH", "FPS60", "FPS_LIMIT", "FRAME_GEN", "FRAME_QUEUE", "FREECAM_KEY", "FREECAM_PAD", "FREECAM_PATCH",
     "FREEZE_IDLE", "FREE_CORES", "FSR3_DEBUG", "FSR3_VIEW", "FSR4_DEBUG", "FSR_SHARPNESS",
@@ -52,7 +52,7 @@ static const char *const known[] = {
     "GAMEPLAY_WEAPON_WHEEL",
     "GPL", "GPL_DRAW_BUILD", "GPU", "GPU_INDEX", "GPU_NAME", "GRASS_RANGE",
     "GYRO_AUTO_BIAS", "GYRO_BIAS_PAD", "GYRO_BIAS_X", "GYRO_BIAS_Y", "GYRO_BIAS_Z", "GYRO_CALIBRATION", "HDR", "HDR_GAME_NITS", "HDR_HUE",
-    "HDR_PEAK_NITS", "HDR_UI_NITS", "HIGHFPS_FIX", "HUD_WIDTH", "INPUT", "INPUT_RECORD", "INPUT_SCRIPT", "KSPIN_US", "LANG", "LIB_PREBUILD",
+    "HDR_PEAK_NITS", "HDR_UI_NITS", "HEAP_LAZY", "HIGHFPS_FIX", "HUD_WIDTH", "INPUT", "INPUT_RECORD", "INPUT_SCRIPT", "KSPIN_US", "LANG", "LIB_PREBUILD",
     "LIB_PREBUILD_KEEP", "LIB_PREBUILD_THREADS", "LIGHTNING_FIX", "LOCALE", "LOD_GUARD", "LOD_STEADY", "LSTICK_DEADZONE", "MAP_CLICK", "MEMORY", "MEMX", "MENU_LANG", "MENU_TEST", "MENU_FONT_FONTCONFIG",
     "MEM_RESERVE_MIB", "MENU_CURSOR", "MENU_CURSOR_LOG", "MENU_TEST_DIR", "MENU_TEST_SET", "MINIMAL_LAYOUT", "MIRROR_GAP", "MODS_DIR", "MODS_DISABLED", "MODS_NO_CODE", "MODS_ORDER", "MODS_REBUILD", "MODS_WITHOUT_CODE", "MOTION", "MOUSE_AIM_SCALE", "MOUSE_MODE", "MOUSE_DIRECT_PATCH", "MOUSE_SENS", "MOVIE_ASPECT", "MOVIE_HOST", "MOVIE_PACE",
     "MVOBJ_ALL", "MVOBJ_BANKS", "MVOBJ_EQUAL", "MVOBJ_EXACT", "MVOBJ_EXEC", "MVOBJ_NOC4", "MVOBJ_ONLY", "MVOBJ_TIMES", "MVPREV_CHECK", "MVPREV_GROW", "MVPREV_SKIP", "MVPREV_TRUST", "MV_CHECK",
@@ -64,7 +64,7 @@ static const char *const known[] = {
     "REPLAY_CHECK", "REPORT_GUARD", "RESOLVE_CHECK", "RESTART_WAIT", "RESTBL_CACHE", "ROMFS", "ROMFS_INDEX", "ROMFS_MMAP", "ROMFS_MODS", "ROMFS_PATCHES",
     "ROMFS_PROOF_DIR", "ROMFS_VERIFY", "RSTICK_DEADZONE", "RUMBLE", "RUMBLE_CURVE", "RUMBLE_STRENGTH", "RUMBLE_TRIGGERS", "SCENE_UPSCALER", "SHADER_CACHE",
     "SHADER_MEMO", "SHADOW", "SHADOW_DEFER", "SHADOW_RANGE", "SHADOW_RES", "SHADOW_SCALE", "SHADOW_SNAP", "SHARED_FONTS", "SHARPNESS", "SHOTS", "SHOTS_DIR", "SHUTTER_FIX",
-    "SHOTS_FULL", "SPEED_PROBE", "SPIN", "SPIN_HANDOFF_US", "SPLIT_DRAWS", "SPLIT_US", "STICK_DEADZONE", "STICK_SENS",
+    "SHOTS_FULL", "SKIP_CS", "SPEED_PROBE", "SPIN", "SPIN_HANDOFF_US", "SPLIT_DRAWS", "SPLIT_US", "STICK_DEADZONE", "STICK_SENS",
     "SWKBD_ANSWER", "SYNC_AHEAD",
     "SWKBD_TEST", "TEST_OOM", "TEST_PAD", "TEST_PAD_RUMBLE_MS", "TEST_PREPARE_SHADERS", "TEX_ALIAS", "TEX_BLOCK_MIB", "TEX_HEAP_EXTRA_MB", "TEX_MEMO", "TEX_RELEASED_MIB", "TEX_VRAM_PRESSURE", "TIMER_1MS", "TRACE", "TXD_TRANSPOSE", "UBO_SNAPSHOT", "UB_OVERLAY", "UB_OVERLAY_OUT", "UPSCALER", "VB_USED", "VK_DYN_A2C", "VK_DYN_VERTEX", "VK_NO_FLOAT64", "VK_NO_HOST_IMPORT",
     "VK_PRESENT", "VK_RECORDER", "VK_SSBO_ALIGN", "VK_SUBGROUP", "VK_SUBGROUP_PIN", "VK_VALIDATION", "VMA_BLOCK_MIB", "VOLUME", "VOLUME_MASK_BIAS", "VOLUME_MUSIC", "VOLUME_SFX", "VOLUME_VOICE", "VRAM_HEADROOM", "VRAM_LIMIT_MIB", "VS_OUTS",
@@ -111,7 +111,7 @@ static const struct { const char *key, *section; } sections[] = {
     {"TIMER_1MS", "performance"}, {"PIPE_WAIT", "performance"}, {"PIPE_SKIP", "performance"},
     {"BARRIER_MERGE", "performance"}, {"LIB_PREBUILD", "performance"}, {"LIB_PREBUILD_THREADS", "performance"}, {"PIPE_PREBUILD", "performance"},
     {"PREWARM_XLATE", "performance"}, {"GPL", "performance"}, {"ASTC", "performance"}, {"MEMORY", "performance"},
-    {"TEX_ALIAS", "performance"}, {"TEX_VRAM_PRESSURE", "performance"}, {"TEX_RELEASED_MIB", "performance"}, {"TEX_BLOCK_MIB", "performance"}, {"VMA_BLOCK_MIB", "performance"}, {"ASTC_BC", "performance"}, {"LOD_GUARD", "performance"}, {"FIX_C0", "performance"}, {"FIX_ZERO", "performance"},
+    {"TEX_ALIAS", "performance"}, {"TEX_VRAM_PRESSURE", "performance"}, {"TEX_RELEASED_MIB", "performance"}, {"TEX_BLOCK_MIB", "performance"}, {"VMA_BLOCK_MIB", "performance"}, {"ASTC_BC", "performance"}, {"LOD_GUARD", "performance"}, {"FIX_C0", "performance"}, {"FIX_ZERO", "performance"}, {"DEMOTE", "performance"},
     {"BIND_SKIP", "performance"}, {"SHADER_MEMO", "performance"}, {"PIPE_MEMO", "performance"}, {"MEMX", "performance"}, {"BIND_INC", "performance"}, {"TEX_MEMO", "performance"}, {"VB_USED", "performance"}, {"DESC_TEMPLATE", "performance"},
     {"SYNC_AHEAD", "performance"}, {"SHADOW_DEFER", "performance"}, {"PUSH_SKIP", "performance"}, {"SPLIT_DRAWS", "performance"}, {"SPLIT_US", "performance"}, {"VK_VALIDATION", "performance"},
     {"VK_DYN_VERTEX", "performance"}, {"VK_DYN_A2C", "performance"}, {"VK_SUBGROUP_PIN", "performance"},
@@ -222,7 +222,7 @@ static const CfgMeta metas[] = {
     {"FREE_CORES", "0", "0|1", RESTART}, {"TIMER_1MS", "1", "0|1", RESTART},
     // shaders and pipelines
     {"PIPE_WAIT", "default", "default|draw", RESTART}, {"PIPE_SKIP", "fullscreen", "strict|any|fullscreen", RESTART},
-    {"BARRIER_MERGE", "0", "0|1", RESTART}, {"LIB_PREBUILD", "1", "0|1", RESTART}, {"LIB_PREBUILD_THREADS", "", "1..64", RESTART},
+    {"BARRIER_MERGE", "1", "0|1", RESTART}, {"LIB_PREBUILD", "1", "0|1", RESTART}, {"LIB_PREBUILD_THREADS", "", "1..64", RESTART},
     {"PIPE_PREBUILD", "1", "0|1", RESTART}, {"PREWARM_XLATE", "", "1..64", RESTART}, {"GPL", "1", "0|1", RESTART},
     // textures and memory
     {"ASTC", "auto", "auto|gpu|native|cpu", RESTART}, {"MEMORY", "auto", "auto|import|mirror|verify", RESTART},
@@ -232,6 +232,7 @@ static const CfgMeta metas[] = {
     {"OPTREF_GUARD", "1", "0|1", RESTART}, {"ABILITY_GUARD", "1", "0|1", RESTART}, {"REPORT_GUARD", "1", "0|1", RESTART},
     // render fixes
     {"LOD_GUARD", "1", "0|1", RESTART}, {"FIX_C0", "1", "0|1", RESTART}, {"FIX_ZERO", "1", "0|1", RESTART},
+    {"DEMOTE", "", "0|1", RESTART},   // vk_pipeline.c spirv_demote: 1 on AMD's own driver, else 0
     {"BIND_SKIP", "1", "0|1", RESTART}, {"SHADER_MEMO", "1", "0|1", RESTART}, {"PIPE_MEMO", "1", "0|1", RESTART}, {"MEMX", "1", "0|1|check", RESTART}, {"BIND_INC", "0", "0|1|check", RESTART}, {"TEX_MEMO", "1", "0|1", RESTART},
     {"VB_USED", "1", "0|1", RESTART},
     {"DESC_TEMPLATE", "1", "0|1", RESTART},
