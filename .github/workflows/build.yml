@@ -90,6 +90,7 @@ jobs:
         with:
           ref: dev
           fetch-depth: 0
+          fetch-tags: true
           submodules: recursive
 
       - name: Set Build Version & Date
@@ -98,8 +99,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
-          $wib = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "SE Asia Standard Time")
-          $tsDate = $wib.ToString("yyyyMMdd")
 
           # Deteksi repo utama (upstream)
           $upstreamRepo = "valentderah/totk-pc-recomp"
@@ -119,6 +118,9 @@ jobs:
               if ($commitInfo.sha) { $upstreamCommit = $commitInfo.sha.Substring(0, 7) }
             } catch {}
           }
+          if (-not $upstreamCommit) {
+            $upstreamCommit = (git rev-parse --short=7 HEAD).Trim()
+          }
 
           # Ambil tag rilis terakhir dari upstream
           $upstreamTag = ""
@@ -130,29 +132,36 @@ jobs:
             } catch {}
           }
 
-          # Baca file VERSION lokal dan hitung versi +1
+          # Ambil versi dasar 3 digit langsung dari sumber (file VERSION / tag upstream), misal 0.5.0
           $verFile = @("VERSION", "version", "VERSION.txt", "version.txt") | Where-Object { Test-Path $_ } | Select-Object -First 1
           $rawVer = if ($verFile) { (Get-Content $verFile -Raw).Trim() } else { "" }
 
-          $vList = @()
-          foreach ($s in @($rawVer, $upstreamTag)) {
-            if ($s -match "(\d+)\.(\d+)\.(\d+)") {
-              $vList += [Version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+          $baseVer = ""
+          foreach ($s in @($upstreamTag, $rawVer)) {
+            if ($s -match "(\d+\.\d+\.\d+)") {
+              $baseVer = $Matches[1]
+              break
             }
           }
+          if (-not $baseVer) { $baseVer = "0.5.0" }
 
-          if ($vList.Count -gt 0) {
-            $maxV = ($vList | Sort-Object -Descending | Select-Object -First 1)
-            $nextBase = "$($maxV.Major).$($maxV.Minor).$($maxV.Build + 1)"
-          } else {
-            $nextBase = "0.5.1"
+          # Hitung jumlah rilis fork yang sudah memakai baseVer tersebut (misal v0.5.0.1+..., v0.5.0.2+...)
+          $existingCount = 0
+          try {
+            $myReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" -Headers $headers
+            $matchedReleases = $myReleases | Where-Object { $_.tag_name -match "^v?$([regex]::Escape($baseVer))\.\d+" }
+            $existingCount = ($matchedReleases | Measure-Object).Count
+          } catch {
+            $localTags = git tag -l "v$baseVer.*"
+            $existingCount = ($localTags | Measure-Object).Count
           }
 
-          $shaDot  = if ($upstreamCommit) { ".$upstreamCommit" } else { "" }
-          $shaDash = if ($upstreamCommit) { "-$upstreamCommit" } else { "" }
+          $forkPatch = $existingCount + 1
+          $fourDigitVer = "$baseVer.$forkPatch"
 
-          $fullVersion  = "$nextBase-dev+$tsDate$shaDot"
-          $artifactName = "TotK-Setup-$nextBase-dev-$tsDate$shaDash-windows"
+          # Format final: v0.5.0.1+<nomor_commit>
+          $fullVersion  = "$fourDigitVer+$upstreamCommit"
+          $artifactName = "TotK-Setup-$fourDigitVer-$upstreamCommit-windows"
           $releaseTag   = "v$fullVersion"
 
           # Timpa file VERSION di workspace agar dibaca installer
@@ -165,12 +174,11 @@ jobs:
           echo "artifact_name=$artifactName" >> $env:GITHUB_OUTPUT
           echo "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
 
-          Write-Host "Build Version: $fullVersion | Tag: $releaseTag | File: $artifactName.zip"
+          Write-Host "Base Upstream: $baseVer | Build Version: $fullVersion | Tag: $releaseTag | File: $artifactName.zip"
 
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Build Version: ``$fullVersion``"
-          if ($upstreamCommit) {
-            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Commit (``$upstreamRepo@dev``):** ``$upstreamCommit``"
-          }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Base Version:** ``$baseVer`` (Fork build ke-``$forkPatch``)"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Upstream Commit (``$upstreamRepo@dev``):** ``$upstreamCommit``"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Release Asset:** ``$artifactName.zip``"
 
       - name: Setup uv
@@ -323,7 +331,7 @@ jobs:
                   ffx_compat.write_text(src + "\n#ifdef __cplusplus\n#include <mutex>\n#endif\n", encoding="utf-8")
                   print("Patched <mutex> into ffx_compat.h")
 
-          full_version = os.environ.get("FULL_VERSION", "0.5.1-dev")
+          full_version = os.environ.get("FULL_VERSION", "0.5.0.1")
 
           zfile = pathlib.Path("official_release.zip")
           if zfile.exists():
