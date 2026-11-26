@@ -101,6 +101,8 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_KEEP] = "Black bars", [UI_MENU_MOVIE_ASPECT_STRETCH] = "Stretch",
     [UI_MENU_FOV] = "Field of view",
     [UI_MENU_FOV_DESC] = "How much of the world the camera shows, in percent of the game's own. Game versions 1.1.0, 1.2.1 and 1.4.3.",
+    [UI_MENU_VERT_PLUS] = "Keep the 16:9 width",
+    [UI_MENU_VERT_PLUS_DESC] = "On screens narrower than 16:9 (Steam Deck, 16:10, 4:3) the camera shows the same width of the world as at 16:9, and more above and below. No effect at 16:9 or wider.",
     [UI_MENU_SHADOW_RES] = "Shadow map size",
     [UI_MENU_SHADOW_RES_DESC] = "Size of the sun's shadow map. The game's own size changes with the view, down to about 400 "
                                 "near the ground, so leaf shadows look blocky and jump; a fixed size keeps them still and "
@@ -532,6 +534,10 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "now: %s",
     [UI_MENU_TIMER_1MS] = "1 ms Windows timer",
     [UI_MENU_TIMER_1MS_DESC] = "Raises the system timer resolution to 1 ms for steadier frame pacing.",
+    [UI_MENU_SYNC_AHEAD] = "One frame ahead of the GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "The game builds the next frame while the graphics card still draws the previous one. More frames per second, one frame more input delay.",
+    [UI_MENU_HOST_CHECKPOINT] = "Quick core hand-over",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "A game thread gives its virtual core to a more important one as soon as it leaves the port's own code, not at its next system call.",
     [UI_MENU_PIPE_WAIT] = "Waiting draw handling",
     [UI_MENU_PIPE_WAIT_DESC] = "Default keeps the current scheduling with a reserved worker for waiting draws; Old (draw) uses the previous scheduling.",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "Default", [UI_MENU_PIPE_WAIT_DRAW] = "Old (draw)",
@@ -563,12 +569,13 @@ static const char *const text_en[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "Fills the driver-reserved constant bank c0 (storage sizes, dispatch size, point size, base instance) instead of reading zeros.",
     [UI_MENU_FIX_ZERO] = "Zero new GPU memory",
     [UI_MENU_FIX_ZERO_DESC] = "New GPU memory pools start zero-filled, as Switch memory does.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Fog and particles after DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "With DLAA, fog, dust and other particles are drawn over the picture DLSS has"
-                                        " already smoothed, as the game draws them without DLSS: small particles in "
-                                        "fog (shrines) no longer vanish or leave trails. Off: DLSS also processes "
-                                        "these effects, as before. DLAA mode only; the upscaling DLSS modes always "
-                                        "process them. Applies at once.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Particles after DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "With DLAA, dust and other particles are drawn over the picture DLSS has "
+                                        "already smoothed, as the game draws them without DLSS: small particles in "
+                                        "fog (shrines) no longer vanish or leave trails. The fog and the clouds still "
+                                        "go through DLSS, so distant edges against the sky stay clean. Off: DLSS also "
+                                        "processes the particles, as before. DLAA mode only; the upscaling DLSS modes "
+                                        "always process them. Applies at once.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Fixed DLSS exposure",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS takes the brightness of the game's picture as it is instead of "
                                          "estimating the exposure from each frame: in dark scenes (the Depths) large "
@@ -749,6 +756,8 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_KEEP] = "Чёрные полосы", [UI_MENU_MOVIE_ASPECT_STRETCH] = "Растянуть",
     [UI_MENU_FOV] = "Поле зрения",
     [UI_MENU_FOV_DESC] = "Сколько мира показывает камера, в процентах от игрового. Для версий игры 1.1.0, 1.2.1 и 1.4.3.",
+    [UI_MENU_VERT_PLUS] = "Ширина обзора как в 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "На экранах уже 16:9 (Steam Deck, 16:10, 4:3) камера показывает мир той же ширины, что и в 16:9, и больше сверху и снизу. На 16:9 и шире ничего не меняет.",
     [UI_MENU_SHADOW_RES] = "Размер карты теней",
     [UI_MENU_SHADOW_RES_DESC] = "Размер карты теней от солнца. Собственный размер игры меняется вместе с видом, у земли до "
                                 "примерно 400, поэтому тени листвы выглядят квадратными и дёргаются; постоянный размер делает "
@@ -1185,6 +1194,10 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "сейчас: %s",
     [UI_MENU_TIMER_1MS] = "Таймер Windows 1 мс",
     [UI_MENU_TIMER_1MS_DESC] = "Повышает точность системного таймера до 1 мс для ровного темпа кадров.",
+    [UI_MENU_SYNC_AHEAD] = "На кадр впереди видеокарты",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Игра готовит следующий кадр, пока видеокарта рисует предыдущий. Больше кадров в секунду, на один кадр больше задержка ввода.",
+    [UI_MENU_HOST_CHECKPOINT] = "Быстрая передача ядра",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Поток игры отдаёт виртуальное ядро более важному потоку сразу при выходе из кода порта, а не на следующем системном вызове.",
     [UI_MENU_PIPE_WAIT] = "Обработка ожидающих отрисовок",
     [UI_MENU_PIPE_WAIT_DESC] = "«По умолчанию» — текущее планирование с отдельным потоком для ожидающих отрисовок; «Старый способ» — прежнее планирование.",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "По умолчанию", [UI_MENU_PIPE_WAIT_DRAW] = "Старый способ",
@@ -1216,12 +1229,13 @@ static const char *const text_ru[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "Заполняет зарезервированный драйвером банк констант c0 (размеры хранилищ, размер запуска, размер точки, базовый экземпляр) вместо чтения нулей.",
     [UI_MENU_FIX_ZERO] = "Обнулять новую память GPU",
     [UI_MENU_FIX_ZERO_DESC] = "Новые пулы памяти GPU заполняются нулями, как память Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Туман и частицы после DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "С DLAA туман, пыль и другие частицы рисуются поверх картинки, уже сглаженной"
-                                        " DLSS, как игра рисует их без DLSS: мелкие частицы в тумане (святилища) "
-                                        "больше не пропадают и не оставляют шлейфов. Выкл.: DLSS обрабатывает и эти "
-                                        "эффекты, как раньше. Только в режиме DLAA; режимы DLSS с повышением "
-                                        "разрешения обрабатывают их всегда. Применяется сразу.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Частицы после DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "С DLAA пыль и другие частицы рисуются поверх картинки, уже сглаженной DLSS, "
+                                        "как игра рисует их без DLSS: мелкие частицы в тумане (святилища) больше не "
+                                        "пропадают и не оставляют шлейфов. Туман и облака по-прежнему проходят через "
+                                        "DLSS, поэтому далёкие края на фоне неба остаются чистыми. Выкл.: DLSS "
+                                        "обрабатывает и частицы, как раньше. Только в режиме DLAA; режимы DLSS с "
+                                        "повышением разрешения обрабатывают их всегда. Применяется сразу.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Фиксированная экспозиция DLSS",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS берёт яркость картинки игры как есть, а не оценивает экспозицию по "
                                          "каждому кадру: в тёмных сценах (Глубины) большие участки в тумане больше не "
@@ -1638,6 +1652,10 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "agora: %s",
     [UI_MENU_TIMER_1MS] = "Timer do Windows de 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Aumenta a resolução do timer do sistema para 1 ms, para um ritmo de quadros mais estável.",
+    [UI_MENU_SYNC_AHEAD] = "Um quadro à frente da GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "O jogo prepara o próximo quadro enquanto a placa de vídeo ainda desenha o anterior. Mais quadros por segundo, um quadro a mais de atraso na entrada.",
+    [UI_MENU_HOST_CHECKPOINT] = "Troca rápida de núcleo",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Uma thread do jogo cede seu núcleo virtual a uma mais importante assim que sai do código do port, e não na próxima chamada de sistema.",
     [UI_MENU_PIPE_WAIT] = "Tratamento de desenhos em espera",
     [UI_MENU_PIPE_WAIT_DESC] = "Padrão mantém o agendamento atual, com um worker reservado para desenhos em espera; Antigo (draw) usa o agendamento anterior.",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "Padrão", [UI_MENU_PIPE_WAIT_DRAW] = "Antigo (draw)",
@@ -1671,12 +1689,14 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "Preenche o banco de constantes c0 reservado ao driver (tamanhos de armazenamento, tamanho do dispatch, tamanho do ponto, instância base) em vez de ler zeros.",
     [UI_MENU_FIX_ZERO] = "Zerar memória nova da GPU",
     [UI_MENU_FIX_ZERO_DESC] = "Novos pools de memória da GPU começam zerados, como a memória do Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Névoa e partículas após o DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Com DLAA, a névoa, a poeira e outras partículas são desenhadas sobre a "
-                                        "imagem já suavizada pelo DLSS, como o jogo as desenha sem DLSS: partículas "
-                                        "pequenas na névoa (santuários) não somem mais nem deixam rastros. Desligado:"
-                                        " o DLSS também processa esses efeitos, como antes. Só no modo DLAA; os modos"
-                                        " de DLSS que aumentam a resolução sempre os processam. Aplica-se na hora.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Partículas após o DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Com DLAA, a poeira e outras partículas são desenhadas sobre a imagem já "
+                                        "suavizada pelo DLSS, como o jogo as desenha sem DLSS: partículas pequenas na "
+                                        "névoa (santuários) não somem mais nem deixam rastros. A névoa e as nuvens "
+                                        "continuam passando pelo DLSS, então as bordas distantes contra o céu ficam "
+                                        "limpas. Desligado: o DLSS também processa as partículas, como antes. Só no "
+                                        "modo DLAA; os modos de DLSS que aumentam a resolução sempre as processam. "
+                                        "Aplica-se na hora.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Exposição fixa do DLSS",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "O DLSS usa o brilho da imagem do jogo como ele é, em vez de estimar a "
                                          "exposição a cada quadro: em cenas escuras (as Profundezas), grandes áreas com "
@@ -1745,6 +1765,8 @@ static const char *const text_pt_br[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "Campo de visão",
     [UI_MENU_FOV_DESC] = "Quanto do mundo a câmera mostra, em porcentagem do original do jogo. Nas versões 1.1.0, 1.2.1 e 1.4.3 "
                          "do jogo.",
+    [UI_MENU_VERT_PLUS] = "Manter a largura de 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "Em telas mais estreitas que 16:9 (Steam Deck, 16:10, 4:3), a câmera mostra a mesma largura do mundo que em 16:9, e mais acima e abaixo. Sem efeito em 16:9 ou mais largo.",
     [UI_MENU_SHADOW_RES] = "Tamanho do mapa de sombras",
     [UI_MENU_SHADOW_RES_DESC] = "Tamanho do mapa de sombras do sol. O tamanho do jogo muda com a vista, até cerca de "
                                 "400 perto do chão, então as sombras das folhas ficam quadriculadas e pulam; um "
@@ -2145,6 +2167,8 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "视野",
     [UI_MENU_FOV_DESC] = "镜头能看到多大范围，以游戏自身视野的百分比表示。"
                           "支持游戏版本 1.1.0、1.2.1 和 1.4.3。",
+    [UI_MENU_VERT_PLUS] = "保持 16:9 宽度",
+    [UI_MENU_VERT_PLUS_DESC] = "在比 16:9 更窄的屏幕上（Steam Deck、16:10、4:3），镜头显示与 16:9 相同宽度的世界，上下显示更多。16:9 或更宽的屏幕没有变化。",
     [UI_MENU_SHARPNESS] = "FSR 锐度",
     [UI_MENU_SHARPNESS_DESC] = "FSR 缩放后的锐化强度；0 为关闭。",
     [UI_MENU_COLOR] = "色彩",
@@ -2421,6 +2445,10 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "当前：%s",
     [UI_MENU_TIMER_1MS] = "1 ms Windows 计时器",
     [UI_MENU_TIMER_1MS_DESC] = "将系统计时器精度提高到 1 ms，使帧间隔更平稳。",
+    [UI_MENU_SYNC_AHEAD] = "领先 GPU 一帧",
+    [UI_MENU_SYNC_AHEAD_DESC] = "游戏在显卡仍在绘制上一帧时就开始准备下一帧。帧率更高，输入延迟多一帧。",
+    [UI_MENU_HOST_CHECKPOINT] = "快速交出核心",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "游戏线程一离开移植层代码就把虚拟核心让给更重要的线程，而不是等到下一次系统调用。",
     [UI_MENU_PIPE_WAIT] = "等待中绘制的处理",
     [UI_MENU_PIPE_WAIT_DESC] = "默认保留当前调度，并为等待中的绘制预留一个工作线程；"
                                "旧版（绘制）沿用先前的调度。",
@@ -2472,10 +2500,10 @@ static const char *const text_zh_hans[UI_TEXT_COUNT] = {
                             "基础实例），而不是读取零值。",
     [UI_MENU_FIX_ZERO] = "清零新的 GPU 内存",
     [UI_MENU_FIX_ZERO_DESC] = "新的 GPU 内存池初始内容为零，与 Switch 内存一致。",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA 之后绘制雾和粒子",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "开启 DLAA 时，雾、灰尘和其他粒子绘制在 DLSS 已平滑的画面之上，与游戏不用 DLSS 时的"
-                                        "绘制方式相同：雾中的细小粒子（神庙中）不再消失，也不再留下拖影。关闭：DLSS 也处理这些效果，与以"
-                                        "前相同。仅用于 DLAA 模式；提升分辨率的 DLSS 模式始终处理它们。立即生效。",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA 之后绘制粒子",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "开启 DLAA 时，灰尘和其他粒子绘制在 DLSS 已平滑的画面之上，与游戏不用 DLSS "
+                                        "时的绘制方式相同：雾中的细小粒子（神庙中）不再消失，也不再留下拖影。雾和云仍由 DLSS 处理，因此远处与天空相接的边缘保持干净。关闭：DLSS "
+                                        "也处理这些粒子，与以前相同。仅用于 DLAA 模式；提升分辨率的 DLSS 模式始终处理它们。立即生效。",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "固定 DLSS 曝光",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS 直接使用游戏画面的亮度，而不是逐帧自行估算曝光：在暗场景（地底）中，"
                                          "镜头移动时大片雾中区域不再忽暗忽亮一帧。关闭：DLSS 自行估算曝光，与以前相同。立即生效。",
@@ -2857,6 +2885,8 @@ static const char *const text_de[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_STRETCH] = "Strecken",
     [UI_MENU_FOV] = "Sichtfeld",
     [UI_MENU_FOV_DESC] = "Wie viel von der Welt die Kamera zeigt, in Prozent des Spielwerts. Nur Spielversion 1.4.3.",
+    [UI_MENU_VERT_PLUS] = "16:9-Breite behalten",
+    [UI_MENU_VERT_PLUS_DESC] = "Auf Bildschirmen, die schmaler als 16:9 sind (Steam Deck, 16:10, 4:3), zeigt die Kamera dieselbe Breite der Welt wie bei 16:9 und mehr darüber und darunter. Bei 16:9 oder breiter ohne Wirkung.",
     [UI_MENU_SHADOW_RES] = "Größe der Schattenkarte",
     [UI_MENU_SHADOW_RES_DESC] = "Größe der Schattenkarte der Sonne. Die Größe des Spiels ändert sich mit der Ansicht, "
                                 "bis etwa 400 nahe am Boden, daher wirken Blätterschatten klotzig und springen; eine "
@@ -3456,6 +3486,10 @@ static const char *const text_de[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "jetzt: %s",
     [UI_MENU_TIMER_1MS] = "Windows-Timer mit 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Erhöht die Auflösung des Systemtimers auf 1 ms für gleichmäßigere Bildzeiten.",
+    [UI_MENU_SYNC_AHEAD] = "Ein Bild vor der GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Das Spiel baut das nächste Bild, während die Grafikkarte noch das vorige zeichnet. Mehr Bilder pro Sekunde, ein Bild mehr Eingabeverzögerung.",
+    [UI_MENU_HOST_CHECKPOINT] = "Schnelle Kernübergabe",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Ein Spiel-Thread gibt seinen virtuellen Kern an einen wichtigeren ab, sobald er den Code des Ports verlässt, nicht erst beim nächsten Systemaufruf.",
     [UI_MENU_PIPE_WAIT] = "Umgang mit wartenden Draws",
     [UI_MENU_PIPE_WAIT_DESC] = "Standard behält die aktuelle Zeitplanung mit einem reservierten Worker für wartende "
                                "Draws; Alt (Draw) verwendet die vorherige Zeitplanung.",
@@ -3508,13 +3542,14 @@ static const char *const text_de[UI_TEXT_COUNT] = {
                             "Punktgröße, Basisinstanz), statt Nullen zu lesen.",
     [UI_MENU_FIX_ZERO] = "Neuen GPU-Speicher nullen",
     [UI_MENU_FIX_ZERO_DESC] = "Neue GPU-Speicherpools beginnen mit Nullen gefüllt, wie Switch-Speicher.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Nebel und Partikel nach DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Mit DLAA werden Nebel, Staub und andere Partikel über das bereits von DLSS "
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Partikel nach DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Mit DLAA werden Staub und andere Partikel über das bereits von DLSS "
                                         "geglättete Bild gezeichnet, so wie das Spiel sie ohne DLSS zeichnet: Kleine "
                                         "Partikel im Nebel (Schreine) verschwinden nicht mehr und ziehen keine Spuren "
-                                        "mehr. Aus: DLSS verarbeitet auch diese Effekte, wie bisher. Nur im "
-                                        "DLAA-Modus; die hochskalierenden DLSS-Modi verarbeiten sie immer. Wirkt "
-                                        "sofort.",
+                                        "mehr. Nebel und Wolken gehen weiterhin durch DLSS, sodass ferne Kanten vor "
+                                        "dem Himmel sauber bleiben. Aus: DLSS verarbeitet auch die Partikel, wie "
+                                        "bisher. Nur im DLAA-Modus; die hochskalierenden DLSS-Modi verarbeiten sie "
+                                        "immer. Wirkt sofort.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Feste DLSS-Belichtung",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS nimmt die Helligkeit des Spielbilds, wie sie ist, statt die Belichtung "
                                          "aus jedem Bild zu schätzen: In dunklen Szenen (Untergrund) werden große "
@@ -3761,6 +3796,8 @@ static const char *const text_fr[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "Champ de vision",
     [UI_MENU_FOV_DESC] = "La part du monde que montre la caméra, en pourcentage de celle du jeu. Version 1.4.3 du jeu "
                          "uniquement.",
+    [UI_MENU_VERT_PLUS] = "Garder la largeur 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "Sur les écrans plus étroits que 16:9 (Steam Deck, 16:10, 4:3), la caméra montre la même largeur du monde qu'en 16:9, et davantage au-dessus et en dessous. Sans effet en 16:9 ou plus large.",
     [UI_MENU_SHADOW_RES] = "Taille de la carte d'ombres",
     [UI_MENU_SHADOW_RES_DESC] = "Taille de la carte d'ombres du soleil. La taille du jeu change avec la vue, jusqu'à "
                                 "environ 400 près du sol, si bien que les ombres des feuilles paraissent pixelisées "
@@ -4374,6 +4411,10 @@ static const char *const text_fr[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "actuel : %s",
     [UI_MENU_TIMER_1MS] = "Minuteur Windows de 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Porte la résolution du minuteur système à 1 ms pour un rythme d'images plus régulier.",
+    [UI_MENU_SYNC_AHEAD] = "Une image d'avance sur le GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Le jeu prépare l'image suivante pendant que la carte graphique dessine encore la précédente. Plus d'images par seconde, une image de latence d'entrée en plus.",
+    [UI_MENU_HOST_CHECKPOINT] = "Cession rapide du cœur",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Un thread du jeu cède son cœur virtuel à un thread plus important dès qu'il quitte le code du portage, et non à son prochain appel système.",
     [UI_MENU_PIPE_WAIT] = "Gestion des draws en attente",
     [UI_MENU_PIPE_WAIT_DESC] = "Par défaut garde l'ordonnancement actuel avec un worker réservé aux draws en attente "
                                "; Ancien (draw) utilise l'ordonnancement précédent.",
@@ -4430,13 +4471,15 @@ static const char *const text_fr[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_ZERO] = "Remettre à zéro la nouvelle mémoire GPU",
     [UI_MENU_FIX_ZERO_DESC] = "Les nouveaux pools de mémoire GPU commencent remplis de zéros, comme la mémoire de la "
                               "Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Brouillard et particules après DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Avec DLAA, le brouillard, la poussière et les autres particules sont "
-                                        "dessinés par-dessus l'image déjà lissée par DLSS, comme le jeu les dessine "
-                                        "sans DLSS : les petites particules dans le brouillard (sanctuaires) ne "
-                                        "disparaissent plus et ne laissent plus de traînées. Désactivé : DLSS traite "
-                                        "aussi ces effets, comme avant. Mode DLAA uniquement ; les modes DLSS avec "
-                                        "mise à l'échelle les traitent toujours. S'applique immédiatement.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Particules après DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Avec DLAA, la poussière et les autres particules sont dessinées par-dessus "
+                                        "l'image déjà lissée par DLSS, comme le jeu les dessine sans DLSS : les "
+                                        "petites particules dans le brouillard (sanctuaires) ne disparaissent plus et "
+                                        "ne laissent plus de traînées. Le brouillard et les nuages passent toujours "
+                                        "par DLSS, donc les bords lointains sur le ciel restent nets. Désactivé : "
+                                        "DLSS traite aussi les particules, comme avant. Mode DLAA uniquement ; les "
+                                        "modes DLSS avec mise à l'échelle les traitent toujours. S'applique "
+                                        "immédiatement.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Exposition DLSS fixe",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS prend la luminosité de l'image du jeu telle quelle au lieu d'estimer "
                                          "l'exposition à chaque image : dans les scènes sombres (les Profondeurs), "
@@ -4685,6 +4728,8 @@ static const char *const text_es[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "Campo de visión",
     [UI_MENU_FOV_DESC] = "Cuánto del mundo muestra la cámara, en porcentaje del propio del juego. Solo la versión "
                          "1.4.3 del juego.",
+    [UI_MENU_VERT_PLUS] = "Mantener el ancho de 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "En pantallas más estrechas que 16:9 (Steam Deck, 16:10, 4:3), la cámara muestra el mismo ancho del mundo que en 16:9, y más por arriba y por abajo. Sin efecto en 16:9 o más ancho.",
     [UI_MENU_SHADOW_RES] = "Tamaño del mapa de sombras",
     [UI_MENU_SHADOW_RES_DESC] = "Tamaño del mapa de sombras del sol. El tamaño del juego cambia con la vista, hasta "
                                 "unos 400 cerca del suelo, por lo que las sombras de las hojas se ven pixeladas y "
@@ -5286,6 +5331,10 @@ static const char *const text_es[UI_TEXT_COUNT] = {
     [UI_MENU_TIMER_1MS] = "Temporizador de Windows de 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Sube la resolución del temporizador del sistema a 1 ms para un ritmo de fotogramas "
                                "más estable.",
+    [UI_MENU_SYNC_AHEAD] = "Un fotograma por delante de la GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "El juego prepara el siguiente fotograma mientras la tarjeta gráfica aún dibuja el anterior. Más fotogramas por segundo, un fotograma más de retraso de entrada.",
+    [UI_MENU_HOST_CHECKPOINT] = "Cesión rápida del núcleo",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Un hilo del juego cede su núcleo virtual a uno más importante en cuanto sale del código del port, no en su siguiente llamada al sistema.",
     [UI_MENU_PIPE_WAIT] = "Gestión de draws en espera",
     [UI_MENU_PIPE_WAIT_DESC] = "Predeterminado mantiene la planificación actual con un worker reservado para draws en "
                                "espera; Antiguo (draw) usa la planificación anterior.",
@@ -5341,12 +5390,14 @@ static const char *const text_es[UI_TEXT_COUNT] = {
                             "tamaño de dispatch, tamaño de punto, instancia base) en lugar de leer ceros.",
     [UI_MENU_FIX_ZERO] = "Poner a cero la memoria GPU nueva",
     [UI_MENU_FIX_ZERO_DESC] = "Los nuevos bloques de memoria GPU empiezan llenos de ceros, como la memoria de Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Niebla y partículas tras DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Con DLAA, la niebla, el polvo y otras partículas se dibujan sobre la imagen "
-                                        "que DLSS ya ha suavizado, como las dibuja el juego sin DLSS: las partículas "
-                                        "pequeñas en la niebla (santuarios) ya no desaparecen ni dejan estelas. No: "
-                                        "DLSS también procesa estos efectos, como antes. Solo en el modo DLAA; los "
-                                        "modos DLSS con escalado siempre los procesan. Se aplica al momento.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Partículas tras DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Con DLAA, el polvo y otras partículas se dibujan sobre la imagen que DLSS ya "
+                                        "ha suavizado, como las dibuja el juego sin DLSS: las partículas pequeñas en "
+                                        "la niebla (santuarios) ya no desaparecen ni dejan estelas. La niebla y las "
+                                        "nubes siguen pasando por DLSS, así que los bordes lejanos contra el cielo "
+                                        "quedan limpios. No: DLSS también procesa las partículas, como antes. Solo en "
+                                        "el modo DLAA; los modos DLSS con escalado siempre los procesan. Se aplica al "
+                                        "momento.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Exposición fija de DLSS",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS toma el brillo de la imagen del juego tal cual en lugar de estimar la "
                                          "exposición en cada fotograma: en escenas oscuras (el Subsuelo) las grandes "
@@ -5594,6 +5645,8 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "Campo visivo",
     [UI_MENU_FOV_DESC] = "Quanta parte del mondo mostra la telecamera, in percentuale di quella del gioco. Solo "
                          "versione 1.4.3 del gioco.",
+    [UI_MENU_VERT_PLUS] = "Mantieni la larghezza 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "Sugli schermi più stretti di 16:9 (Steam Deck, 16:10, 4:3) la telecamera mostra la stessa larghezza del mondo che in 16:9, e di più sopra e sotto. Nessun effetto a 16:9 o più largo.",
     [UI_MENU_SHADOW_RES] = "Dimensione della mappa delle ombre",
     [UI_MENU_SHADOW_RES_DESC] = "Dimensione della mappa delle ombre del sole. Quella del gioco cambia con la visuale, "
                                 "fino a circa 400 vicino al suolo, quindi le ombre delle foglie sembrano squadrate e "
@@ -6199,6 +6252,10 @@ static const char *const text_it[UI_TEXT_COUNT] = {
     [UI_MENU_TIMER_1MS] = "Timer di Windows a 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Porta la risoluzione del timer di sistema a 1 ms per un ritmo dei fotogrammi più "
                                "regolare.",
+    [UI_MENU_SYNC_AHEAD] = "Un fotogramma avanti alla GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Il gioco prepara il fotogramma successivo mentre la scheda video disegna ancora il precedente. Più fotogrammi al secondo, un fotogramma in più di ritardo dell'input.",
+    [UI_MENU_HOST_CHECKPOINT] = "Cessione rapida del core",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Un thread del gioco cede il suo core virtuale a uno più importante appena esce dal codice del port, non alla sua prossima chiamata di sistema.",
     [UI_MENU_PIPE_WAIT] = "Gestione dei draw in attesa",
     [UI_MENU_PIPE_WAIT_DESC] = "Predefinito mantiene la pianificazione attuale con un worker riservato ai draw in "
                                "attesa; Vecchio (draw) usa la pianificazione precedente.",
@@ -6253,12 +6310,13 @@ static const char *const text_it[UI_TEXT_COUNT] = {
                             "del dispatch, dimensione dei punti, istanza base) invece di leggere zeri.",
     [UI_MENU_FIX_ZERO] = "Azzera la nuova memoria GPU",
     [UI_MENU_FIX_ZERO_DESC] = "I nuovi pool di memoria GPU partono riempiti di zeri, come la memoria di Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Nebbia e particelle dopo DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Con DLAA, nebbia, polvere e altre particelle vengono disegnate sopra "
-                                        "l'immagine già levigata da DLSS, come le disegna il gioco senza DLSS: le "
-                                        "piccole particelle nella nebbia (sacrari) non spariscono più né lasciano "
-                                        "scie. No: DLSS elabora anche questi effetti, come prima. Solo in modalità "
-                                        "DLAA; le modalità DLSS con upscaling li elaborano sempre. Si applica subito.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Particelle dopo DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Con DLAA, polvere e altre particelle vengono disegnate sopra l'immagine già "
+                                        "levigata da DLSS, come le disegna il gioco senza DLSS: le piccole particelle "
+                                        "nella nebbia (sacrari) non spariscono più né lasciano scie. Nebbia e nuvole "
+                                        "passano ancora per DLSS, così i bordi lontani contro il cielo restano "
+                                        "puliti. No: DLSS elabora anche le particelle, come prima. Solo in modalità "
+                                        "DLAA; le modalità DLSS con upscaling le elaborano sempre. Si applica subito.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Esposizione DLSS fissa",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS prende la luminosità dell'immagine del gioco così com'è invece di "
                                          "stimare l'esposizione da ogni fotogramma: nelle scene buie (il Sottosuolo) "
@@ -6505,6 +6563,8 @@ static const char *const text_nl[UI_TEXT_COUNT] = {
     [UI_MENU_FOV] = "Gezichtsveld",
     [UI_MENU_FOV_DESC] = "Hoeveel van de wereld de camera toont, in procenten van dat van het spel. Alleen spelversie "
                          "1.4.3.",
+    [UI_MENU_VERT_PLUS] = "16:9-breedte behouden",
+    [UI_MENU_VERT_PLUS_DESC] = "Op schermen die smaller zijn dan 16:9 (Steam Deck, 16:10, 4:3) toont de camera dezelfde breedte van de wereld als bij 16:9, en meer erboven en eronder. Geen effect bij 16:9 of breder.",
     [UI_MENU_SHADOW_RES] = "Grootte van de schaduwkaart",
     [UI_MENU_SHADOW_RES_DESC] = "Grootte van de schaduwkaart van de zon. De grootte van het spel verandert met het "
                                 "zicht, tot ongeveer 400 dicht bij de grond, waardoor bladschaduwen blokkerig ogen en "
@@ -7091,6 +7151,10 @@ static const char *const text_nl[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "nu: %s",
     [UI_MENU_TIMER_1MS] = "Windows-timer van 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Verhoogt de resolutie van de systeemtimer naar 1 ms voor een gelijkmatiger beeldritme.",
+    [UI_MENU_SYNC_AHEAD] = "Eén beeld voor op de GPU",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Het spel bouwt het volgende beeld terwijl de videokaart het vorige nog tekent. Meer beelden per seconde, één beeld meer invoervertraging.",
+    [UI_MENU_HOST_CHECKPOINT] = "Snelle kernoverdracht",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Een spelthread geeft zijn virtuele kern aan een belangrijkere thread zodra hij de code van de port verlaat, niet pas bij zijn volgende systeemaanroep.",
     [UI_MENU_PIPE_WAIT] = "Afhandeling van wachtende draws",
     [UI_MENU_PIPE_WAIT_DESC] = "Standaard houdt de huidige planning met een gereserveerde worker voor wachtende "
                                "draws; Oud (draw) gebruikt de vorige planning.",
@@ -7145,12 +7209,14 @@ static const char *const text_nl[UI_TEXT_COUNT] = {
                             "dispatchgrootte, puntgrootte, basisinstantie) in plaats van nullen te lezen.",
     [UI_MENU_FIX_ZERO] = "Nieuw GPU-geheugen op nul zetten",
     [UI_MENU_FIX_ZERO_DESC] = "Nieuwe GPU-geheugenpools beginnen gevuld met nullen, zoals Switch-geheugen.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Mist en deeltjes na DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Met DLAA worden mist, stof en andere deeltjes over het beeld getekend dat "
-                                        "DLSS al heeft gladgestreken, zoals het spel ze zonder DLSS tekent: kleine "
-                                        "deeltjes in mist (heiligdommen) verdwijnen niet meer en laten geen sporen "
-                                        "meer achter. Uit: DLSS verwerkt deze effecten ook, zoals voorheen. Alleen in "
-                                        "DLAA-modus; de upscalingmodi van DLSS verwerken ze altijd. Werkt meteen.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Deeltjes na DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Met DLAA worden stof en andere deeltjes over het beeld getekend dat DLSS al "
+                                        "heeft gladgestreken, zoals het spel ze zonder DLSS tekent: kleine deeltjes "
+                                        "in mist (heiligdommen) verdwijnen niet meer en laten geen sporen meer "
+                                        "achter. Mist en wolken gaan nog steeds door DLSS, zodat verre randen tegen "
+                                        "de lucht schoon blijven. Uit: DLSS verwerkt ook de deeltjes, zoals voorheen. "
+                                        "Alleen in DLAA-modus; de upscalingmodi van DLSS verwerken ze altijd. Werkt "
+                                        "meteen.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Vaste DLSS-belichting",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS neemt de helderheid van het spelbeeld zoals ze is, in plaats van de "
                                          "belichting per beeld te schatten: in donkere scènes (de Diepten) worden "
@@ -7385,6 +7451,8 @@ static const char *const text_ja[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_STRETCH] = "引き伸ばし",
     [UI_MENU_FOV] = "視野角",
     [UI_MENU_FOV_DESC] = "カメラが映す範囲を、ゲーム本来の視野に対するパーセントで指定します。ゲームのバージョン 1.4.3 のみ。",
+    [UI_MENU_VERT_PLUS] = "16:9 の横幅を保つ",
+    [UI_MENU_VERT_PLUS_DESC] = "16:9 より横幅の狭い画面（Steam Deck、16:10、4:3）で、カメラが 16:9 と同じ横幅の世界を映し、上下はより広く映します。16:9 以上の横長の画面では変わりません。",
     [UI_MENU_SHADOW_RES] = "シャドウマップのサイズ",
     [UI_MENU_SHADOW_RES_DESC] = "太陽のシャドウマップの大きさです。ゲーム本来のサイズは視点によって変わり、地面近くでは約 400 まで下がるため、葉の影がブロック状になって跳ねます。固定サイ"
                                 "ズにすると影が安定し、くっきりします。1024 を超えると GPU 時間とビデオメモリが増えます。",
@@ -7876,6 +7944,10 @@ static const char *const text_ja[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "現在: %s",
     [UI_MENU_TIMER_1MS] = "1 ms の Windows タイマー",
     [UI_MENU_TIMER_1MS_DESC] = "システムタイマーの分解能を 1 ms に上げ、フレーム間隔を安定させます。",
+    [UI_MENU_SYNC_AHEAD] = "GPU より 1 フレーム先行",
+    [UI_MENU_SYNC_AHEAD_DESC] = "グラフィックカードが前のフレームを描いている間に、ゲームが次のフレームを組み立てます。フレームレートが上がり、入力遅延が 1 フレーム増えます。",
+    [UI_MENU_HOST_CHECKPOINT] = "コアの素早い受け渡し",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "ゲームのスレッドは、移植側のコードを抜けた時点で、より重要なスレッドに仮想コアを譲ります。次のシステムコールまで待ちません。",
     [UI_MENU_PIPE_WAIT] = "待機中の描画の扱い",
     [UI_MENU_PIPE_WAIT_DESC] = "「既定」は待機中の描画用にワーカーを確保した現在のスケジューリングを使い、「旧方式 (draw)」は以前のスケジューリングを使います。",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "既定",
@@ -7920,9 +7992,10 @@ static const char *const text_ja[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "ドライバー予約の定数バンク c0 (ストレージサイズ、ディスパッチサイズ、ポイントサイズ、ベースインスタンス) を、ゼロを読む代わりに埋めます。",
     [UI_MENU_FIX_ZERO] = "新しい GPU メモリをゼロで埋める",
     [UI_MENU_FIX_ZERO_DESC] = "Switch のメモリと同じく、新しい GPU メモリプールをゼロで埋めた状態から始めます。",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA の後に霧とパーティクル",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "DLAA 使用時、霧、ちり、その他のパーティクルを、DLSS が滑らかにした後の映像の上に描きます。DLSS なしでゲームが描くのと同じです: "
-                                        "霧の中の小さなパーティクル (祠) が消えたり残像を残したりしなくなります。オフ: これまでどおり DLSS がこれらのエフェクトも処理します。DLAA "
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA の後にパーティクル",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "DLAA 使用時、ちりやその他のパーティクルを、DLSS が滑らかにした後の映像の上に描きます。DLSS なしでゲームが描くのと同じです: "
+                                        "霧の中の小さなパーティクル (祠) が消えたり残像を残したりしなくなります。霧と雲は引き続き DLSS "
+                                        "を通るため、空を背にした遠くの輪郭はきれいなままです。オフ: これまでどおり DLSS がパーティクルも処理します。DLAA "
                                         "モードのみ。アップスケーリングする DLSS モードでは常に処理されます。すぐに反映されます。",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "DLSS の露出を固定",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS が各フレームから露出を推定せず、ゲームの映像の明るさをそのまま使います: 暗い場面 (地底) "
@@ -8134,6 +8207,8 @@ static const char *const text_ko[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_STRETCH] = "늘리기",
     [UI_MENU_FOV] = "시야각",
     [UI_MENU_FOV_DESC] = "카메라가 보여 주는 범위를 게임 원래 시야에 대한 퍼센트로 지정합니다. 게임 버전 1.4.3 전용입니다.",
+    [UI_MENU_VERT_PLUS] = "16:9 너비 유지",
+    [UI_MENU_VERT_PLUS_DESC] = "16:9보다 좁은 화면(Steam Deck, 16:10, 4:3)에서 카메라가 16:9와 같은 너비의 세계를 보여 주고 위아래는 더 많이 보여 줍니다. 16:9 이상 넓은 화면에서는 효과가 없습니다.",
     [UI_MENU_SHADOW_RES] = "그림자 맵 크기",
     [UI_MENU_SHADOW_RES_DESC] = "태양 그림자 맵의 크기입니다. 게임 원래 크기는 시점에 따라 바뀌며 지면 가까이에서는 약 400까지 내려가서 나뭇잎 그림자가 각지고 튀게 됩니다. 고정 "
                                 "크기로 하면 그림자가 안정되고 선명해집니다. 1024를 넘으면 GPU 시간과 비디오 메모리가 늘어납니다.",
@@ -8626,6 +8701,10 @@ static const char *const text_ko[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "현재: %s",
     [UI_MENU_TIMER_1MS] = "1 ms Windows 타이머",
     [UI_MENU_TIMER_1MS_DESC] = "시스템 타이머 해상도를 1 ms로 올려 프레임 간격을 고르게 합니다.",
+    [UI_MENU_SYNC_AHEAD] = "GPU보다 한 프레임 앞서기",
+    [UI_MENU_SYNC_AHEAD_DESC] = "그래픽 카드가 이전 프레임을 그리는 동안 게임이 다음 프레임을 만듭니다. 프레임이 늘고 입력 지연이 한 프레임 늘어납니다.",
+    [UI_MENU_HOST_CHECKPOINT] = "빠른 코어 넘기기",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "게임 스레드가 포트 코드를 벗어나는 즉시 더 중요한 스레드에 가상 코어를 넘깁니다. 다음 시스템 호출까지 기다리지 않습니다.",
     [UI_MENU_PIPE_WAIT] = "대기 중인 그리기 처리",
     [UI_MENU_PIPE_WAIT_DESC] = "'기본값'은 대기 중인 그리기용 워커를 둔 현재 스케줄링을, '이전 방식(draw)'은 예전 스케줄링을 사용합니다.",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "기본값",
@@ -8671,10 +8750,11 @@ static const char *const text_ko[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "드라이버 예약 상수 뱅크 c0(저장소 크기, 디스패치 크기, 포인트 크기, 기본 인스턴스)을 0을 읽는 대신 채웁니다.",
     [UI_MENU_FIX_ZERO] = "새 GPU 메모리를 0으로 채우기",
     [UI_MENU_FIX_ZERO_DESC] = "Switch 메모리처럼 새 GPU 메모리 풀을 0으로 채운 상태에서 시작합니다.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA 후 안개와 파티클",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "DLAA 사용 시 안개, 먼지 등 파티클을 DLSS가 이미 부드럽게 한 영상 위에 그립니다. DLSS 없이 게임이 그리는 방식과 "
-                                        "같습니다. 안개 속의 작은 파티클(사당)이 더 이상 사라지거나 잔상을 남기지 않습니다. 끄기: 예전처럼 DLSS가 이 효과도 처리합니다. "
-                                        "DLAA 모드 전용이며, 업스케일링 DLSS 모드는 항상 이 효과를 처리합니다. 즉시 적용됩니다.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "DLAA 후 파티클",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "DLAA 사용 시 먼지 등 파티클을 DLSS가 이미 부드럽게 한 영상 위에 그립니다. DLSS 없이 게임이 그리는 방식과 같습니다. 안개 "
+                                        "속의 작은 파티클(사당)이 더 이상 사라지거나 잔상을 남기지 않습니다. 안개와 구름은 계속 DLSS를 거치므로 하늘을 배경으로 한 먼 "
+                                        "윤곽이 깨끗하게 유지됩니다. 끄기: 예전처럼 DLSS가 파티클도 처리합니다. DLAA 모드 전용이며, 업스케일링 DLSS 모드는 항상 이 "
+                                        "효과를 처리합니다. 즉시 적용됩니다.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "DLSS 노출 고정",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS가 프레임마다 노출을 추정하지 않고 게임 영상의 밝기를 그대로 사용합니다. 어두운 장면(지저)에서 안개 낀 넓은 영역이 카메라가 "
                                          "움직일 때 한 프레임 동안 어두워지거나 밝아지지 않습니다. 끄기: 예전처럼 DLSS가 노출을 직접 추정합니다. 즉시 적용됩니다.",
@@ -8869,6 +8949,8 @@ static const char *const text_vi[UI_TEXT_COUNT] = {
     [UI_MENU_MOVIE_ASPECT_KEEP] = "Dải đen", [UI_MENU_MOVIE_ASPECT_STRETCH] = "Kéo giãn",
     [UI_MENU_FOV] = "Góc nhìn",
     [UI_MENU_FOV_DESC] = "Camera cho thấy bao nhiêu thế giới, tính theo phần trăm của game gốc. Game phiên bản 1.1.0, 1.2.1 và 1.4.3.",
+    [UI_MENU_VERT_PLUS] = "Giữ bề ngang 16:9",
+    [UI_MENU_VERT_PLUS_DESC] = "Trên màn hình hẹp hơn 16:9 (Steam Deck, 16:10, 4:3), camera cho thấy thế giới rộng ngang như ở 16:9, và nhiều hơn ở phía trên và dưới. Không có tác dụng ở 16:9 hoặc rộng hơn.",
     [UI_MENU_SHADOW_RES] = "Kích thước bản đồ bóng",
     [UI_MENU_SHADOW_RES_DESC] = "Kích thước bản đồ bóng của mặt trời. Kích thước của game đổi theo tầm nhìn, xuống còn khoảng "
                                 "400 khi gần mặt đất, nên bóng lá trông bị vỡ ô và nhảy; kích thước cố định giữ chúng đứng "
@@ -9288,6 +9370,10 @@ static const char *const text_vi[UI_TEXT_COUNT] = {
     [UI_MENU_REPLAY_WORKERS_NOW] = "hiện tại: %s",
     [UI_MENU_TIMER_1MS] = "Bộ hẹn giờ Windows 1 ms",
     [UI_MENU_TIMER_1MS_DESC] = "Nâng độ phân giải bộ hẹn giờ hệ thống lên 1 ms để nhịp khung hình đều hơn.",
+    [UI_MENU_SYNC_AHEAD] = "Đi trước GPU một khung hình",
+    [UI_MENU_SYNC_AHEAD_DESC] = "Game dựng khung hình tiếp theo trong khi card đồ họa vẫn vẽ khung hình trước. Nhiều khung hình mỗi giây hơn, thêm một khung hình độ trễ điều khiển.",
+    [UI_MENU_HOST_CHECKPOINT] = "Nhường lõi nhanh",
+    [UI_MENU_HOST_CHECKPOINT_DESC] = "Một luồng game nhường lõi ảo cho luồng quan trọng hơn ngay khi rời khỏi mã của bản port, không đợi đến lời gọi hệ thống tiếp theo.",
     [UI_MENU_PIPE_WAIT] = "Xử lý lệnh vẽ đang chờ",
     [UI_MENU_PIPE_WAIT_DESC] = "Mặc định giữ cách lập lịch hiện tại, có một luồng xử lý dành riêng cho các lệnh vẽ đang chờ; Cũ (lệnh vẽ) dùng cách lập lịch trước đó.",
     [UI_MENU_PIPE_WAIT_DEFAULT] = "Mặc định", [UI_MENU_PIPE_WAIT_DRAW] = "Cũ (lệnh vẽ)",
@@ -9319,11 +9405,12 @@ static const char *const text_vi[UI_TEXT_COUNT] = {
     [UI_MENU_FIX_C0_DESC] = "Điền bảng hằng số c0 mà trình điều khiển dành riêng (kích thước vùng lưu trữ, kích thước điều phối, kích thước điểm, thực thể gốc) thay vì đọc ra số không.",
     [UI_MENU_FIX_ZERO] = "Xóa sạch bộ nhớ GPU mới",
     [UI_MENU_FIX_ZERO_DESC] = "Các vùng nhớ GPU mới bắt đầu với toàn số không, như bộ nhớ Switch.",
-    [UI_MENU_DLAA_EFFECTS_AFTER] = "Sương mù và hạt sau DLAA",
-    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Với DLAA, sương mù, bụi và các hạt khác được vẽ đè lên hình DLSS đã làm mịn, như game "
-                                        "vẽ chúng khi không có DLSS: các hạt nhỏ trong sương mù (đền thờ) không còn biến mất "
-                                        "hay để lại vệt. Tắt: DLSS cũng xử lý các hiệu ứng này, như trước. Chỉ ở chế độ "
-                                        "DLAA; các chế độ phóng to DLSS luôn xử lý chúng. Áp dụng ngay.",
+    [UI_MENU_DLAA_EFFECTS_AFTER] = "Hạt sau DLAA",
+    [UI_MENU_DLAA_EFFECTS_AFTER_DESC] = "Với DLAA, bụi và các hạt khác được vẽ đè lên hình DLSS đã làm mịn, như game "
+                                        "vẽ chúng khi không có DLSS: các hạt nhỏ trong sương mù (đền thờ) không còn "
+                                        "biến mất hay để lại vệt. Sương mù và mây vẫn đi qua DLSS, nên các cạnh ở xa "
+                                        "trên nền trời vẫn sạch. Tắt: DLSS cũng xử lý các hạt này, như trước. Chỉ ở "
+                                        "chế độ DLAA; các chế độ phóng to DLSS luôn xử lý chúng. Áp dụng ngay.",
     [UI_MENU_DLSS_FIXED_EXPOSURE] = "Phơi sáng DLSS cố định",
     [UI_MENU_DLSS_FIXED_EXPOSURE_DESC] = "DLSS lấy độ sáng của hình game như nó vốn có thay vì ước lượng phơi sáng từ từng "
                                          "khung hình: trong cảnh tối (Depths) các vùng sương lớn không còn tối hoặc sáng đi "
