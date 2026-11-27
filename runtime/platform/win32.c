@@ -1350,6 +1350,24 @@ void plat_fs_busy_reason(const char *dir, char *out, size_t cap) {
     }
 }
 
+int plat_fs_space(const char *path, uint64_t *free_bytes, uint64_t *total_bytes) {
+    wchar_t w[WPATH];
+    ULARGE_INTEGER avail, total;
+    if (!widen(path, w, WPATH) || !GetDiskFreeSpaceExW(w, &avail, &total, NULL)) return 0;
+    *free_bytes = avail.QuadPart, *total_bytes = total.QuadPart;
+    return 1;
+}
+
+int plat_fs_mtime(const char *path, int64_t *posix_seconds) {
+    wchar_t w[WPATH];
+    WIN32_FILE_ATTRIBUTE_DATA a;
+    if (!widen(path, w, WPATH) || !GetFileAttributesExW(w, GetFileExInfoStandard, &a)) return 0;
+    // FILETIME counts 100 ns steps from 1601-01-01; 11644473600 s lie between that and 1970-01-01
+    uint64_t t = (uint64_t)a.ftLastWriteTime.dwHighDateTime << 32 | a.ftLastWriteTime.dwLowDateTime;
+    *posix_seconds = (int64_t)(t / 10000000u) - 11644473600ll;
+    return 1;
+}
+
 int plat_fs_list(const char *dir, int (*cb)(const char *name, int kind, uint64_t size, void *ctx), void *ctx) {
     wchar_t wd[WPATH], pat[WPATH + 4];
     if (!widen(dir, wd, WPATH)) return PLAT_FS_ERROR;
@@ -1943,7 +1961,10 @@ int plat_restart(void) {
     STARTUPINFOW si = {.cb = sizeof si};
     PROCESS_INFORMATION pi;
     wchar_t *cmd = _wcsdup(GetCommandLineW());   // CreateProcessW may write its command line
-    BOOL ok = cmd && CreateProcessW(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+    // A process that left its console (loadwin_win.c lw_wsys_detach_console) starts the new one without a console
+    // window, which would otherwise open for it until that one leaves its console too
+    DWORD flags = GetConsoleWindow() ? 0 : CREATE_NO_WINDOW;
+    BOOL ok = cmd && CreateProcessW(NULL, cmd, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi);
     free(cmd);
     plat_setenv(RESTART_WAIT, NULL);
     if (!ok) return 0;
